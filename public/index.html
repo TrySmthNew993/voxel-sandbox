@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voxel Sandbox — Procedural 3D World &amp; LAN Multiplayer</title>
+    <meta name="description" content="High-performance 60 FPS procedural 3D voxel sandbox built with Vanilla JavaScript, Three.js, Web Workers, and WebSocket LAN multiplayer." />
+    <link rel="stylesheet" href="./styles/main.css" />
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./vendor/three/build/three.module.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <main id="game-viewport" aria-label="3D Voxel Sandbox Viewport"></main>
+
+    <div id="underwater-tint" class="underwater-tint hidden" aria-hidden="true"></div>
+
+    <!-- Centered Crosshair -->
+    <div id="crosshair" class="crosshair hidden" aria-hidden="true">
+        <span class="crosshair-h"></span>
+        <span class="crosshair-v"></span>
+    </div>
+
+    <!-- F3 Debug Telemetry Overlay -->
+    <aside id="debug-overlay" class="debug-overlay hidden" aria-label="Performance and World Telemetry">
+        <div id="debug-text"></div>
+    </aside>
+
+    <!-- Bottom HUD: Toast, Status Hint, and 9-Slot Hotbar -->
+    <section id="hud-bottom" class="hud-bottom" aria-label="Inventory Hotbar">
+        <div id="block-toast" class="block-toast"></div>
+        <div id="mode-indicator" class="mode-indicator hidden">FLY MODE</div>
+        <div id="hotbar" class="hotbar" role="listbox" aria-label="Block Hotbar"></div>
+    </section>
+
+    <!-- Block Palette Drawer (E key) -->
+    <section id="palette-modal" class="palette-modal hidden" aria-label="Block Inventory Palette">
+        <div class="palette-card">
+            <header class="palette-header">
+                <h2>Block Palette</h2>
+                <span class="palette-sub">Click a block to assign it to the active hotbar slot</span>
+                <button id="palette-close-btn" class="btn-ghost" type="button">Resume</button>
+            </header>
+            <div id="palette-grid" class="palette-grid"></div>
+        </div>
+    </section>
+
+    <!-- Start / Pause & LAN Multiplayer Modal -->
+    <section id="menu-modal" class="menu-modal" aria-label="Game Menu and LAN Multiplayer">
+        <div class="menu-shell">
+            <header class="menu-header">
+                <div>
+                    <h1>Voxel Sandbox</h1>
+                    <p class="menu-subtitle">Procedural Simplex Terrain &middot; 60 FPS WebGL &middot; LAN Multiplayer</p>
+                </div>
+                <span id="net-badge" class="status-badge status-solo">Solo Mode</span>
+            </header>
+
+            <div class="menu-columns">
+                <!-- Left Column: Gameplay & Settings -->
+                <div class="menu-panel">
+                    <h2>World &amp; Controls</h2>
+                    <button id="play-btn" class="btn-primary" type="button">Play / Resume World</button>
+
+                    <div class="form-group">
+                        <label for="seed-input">Solo World Seed</label>
+                        <div class="input-row">
+                            <input id="seed-input" type="number" step="1" value="133742" />
+                            <button id="new-world-btn" class="btn-secondary" type="button">New World</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="render-dist-slider">
+                            Render Distance: <strong id="render-dist-val">6</strong> chunks
+                        </label>
+                        <input id="render-dist-slider" type="range" min="2" max="10" step="1" value="6" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sensitivity-slider">
+                            Mouse Sensitivity: <strong id="sensitivity-val">1.0x</strong>
+                        </label>
+                        <input id="sensitivity-slider" type="range" min="0.4" max="2.5" step="0.1" value="1.0" />
+                    </div>
+
+                    <div class="toggle-row">
+                        <label class="checkbox-label">
+                            <input id="debug-toggle-chk" type="checkbox" />
+                            <span>Show Telemetry HUD (F3)</span>
+                        </label>
+                    </div>
+
+                    <div class="controls-legend">
+                        <div><kbd>WASD</kbd> Move</div>
+                        <div><kbd>Space</kbd> Jump / Swim</div>
+                        <div><kbd>Shift</kbd> Sprint</div>
+                        <div><kbd>F</kbd> Toggle Fly</div>
+                        <div><kbd>LMB</kbd> Break Block</div>
+                        <div><kbd>RMB</kbd> Place Block</div>
+                        <div><kbd>1-9</kbd> / Scroll Hotbar</div>
+                        <div><kbd>E</kbd> Block Palette</div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Multiplayer (Browser P2P + LAN Server) -->
+                <div class="menu-panel">
+                    <h2>Multiplayer</h2>
+
+                    <div class="form-group">
+                        <label for="player-name-input">Player Name</label>
+                        <input id="player-name-input" type="text" maxlength="18" value="Builder" placeholder="Enter nickname" />
+                    </div>
+
+                    <div class="mp-tabs" role="tablist">
+                        <button id="tab-p2p-btn" class="mp-tab active" type="button" role="tab" aria-selected="true">Browser P2P (No Server)</button>
+                        <button id="tab-lan-btn" class="mp-tab" type="button" role="tab" aria-selected="false">LAN Server (IP:Port)</button>
+                    </div>
+
+                    <!-- Tab 1: Serverless WebRTC P2P -->
+                    <div id="mp-panel-p2p" class="mp-tab-panel">
+                        <div class="p2p-box">
+                            <div class="p2p-step-header">
+                                <span>1. Host a World</span>
+                                <button id="p2p-create-invite-btn" class="btn-accent btn-sm" type="button">Create Invite</button>
+                            </div>
+                            <div class="input-row">
+                                <input id="p2p-invite-out" type="text" readonly placeholder="Click Create Invite to get code..." />
+                                <button id="p2p-copy-invite-btn" class="btn-ghost" type="button">Copy</button>
+                            </div>
+                            <div class="input-row">
+                                <input id="p2p-answer-in" type="text" placeholder="Paste friend's Answer code here..." />
+                                <button id="p2p-accept-answer-btn" class="btn-secondary btn-sm" type="button">Connect</button>
+                            </div>
+                        </div>
+
+                        <div class="p2p-box">
+                            <div class="p2p-step-header">
+                                <span>2. Join a Friend's World</span>
+                            </div>
+                            <div class="input-row">
+                                <input id="p2p-invite-in" type="text" placeholder="Paste Host Invite code (VX1:...)..." />
+                                <button id="p2p-join-invite-btn" class="btn-accent btn-sm" type="button">Accept</button>
+                            </div>
+                            <div class="input-row">
+                                <input id="p2p-answer-out" type="text" readonly placeholder="Your Answer code appears here..." />
+                                <button id="p2p-copy-answer-btn" class="btn-ghost" type="button">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Node.js LAN Server -->
+                    <div id="mp-panel-lan" class="mp-tab-panel hidden">
+                        <div class="lan-info-box">
+                            <span class="lan-info-label">Host LAN Address</span>
+                            <div class="lan-addr-row">
+                                <code id="lan-address-display">Detecting...</code>
+                                <button id="copy-lan-btn" class="btn-ghost" type="button">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="server-addr-input">Join Server (IP:Port)</label>
+                            <div class="input-row">
+                                <input id="server-addr-input" type="text" placeholder="192.168.1.42:3000" />
+                                <button id="connect-btn" class="btn-accent" type="button">Join</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="disconnect-btn" class="btn-danger hidden" type="button">Disconnect to Solo</button>
+
+                    <div id="net-feedback" class="net-feedback"></div>
+
+                    <div class="players-section">
+                        <h3>Connected Players</h3>
+                        <ul id="players-list" class="players-list">
+                            <li class="players-empty">Not connected to a multiplayer session</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>
