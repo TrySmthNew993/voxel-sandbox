@@ -39,7 +39,7 @@ export const TERMINAL_VELOCITY = 48.0;
 
 // Networking Constants
 export const DEFAULT_PORT = 3000;
-export const NET_TICK_MS = 50; // 20 Hz state sync
+export const NET_TICK_MS = 25; // 40 Hz low-latency state sync
 
 export const MSG = Object.freeze({
     JOIN: 'JOIN',
@@ -49,6 +49,7 @@ export const MSG = Object.freeze({
     PLAYER_STATE: 'PLAYER_STATE',
     BLOCK_SET: 'BLOCK_SET',
     BLOCK_UPDATE: 'BLOCK_UPDATE',
+    TIME_SYNC: 'TIME_SYNC',
     CHAT: 'CHAT',
     PING: 'PING',
     PONG: 'PONG',

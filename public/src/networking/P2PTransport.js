@@ -89,11 +89,12 @@ export class P2PHostSession {
         const peerId = `p_${this.nextPeerNum++}`;
         const pc = new RTCPeerConnection(ICE_CONFIG);
         const channel = pc.createDataChannel('voxel', { ordered: true });
-        const entry = { pc, channel };
+        const fastChannel = pc.createDataChannel('voxel-fast', { ordered: false, maxRetransmits: 0 });
+        const entry = { pc, channel, fastChannel };
         this.peers.set(peerId, entry);
         this.pendingOfferPeerId = peerId;
 
-        this._wireChannel(peerId, pc, channel);
+        this._wireChannel(peerId, pc, channel, fastChannel);
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -126,18 +127,23 @@ export class P2PHostSession {
         this.pendingOfferPeerId = null;
     }
 
-    _wireChannel(peerId, pc, channel) {
-        channel.addEventListener('open', () => {
-            this.callbacks.onPeerOpen(peerId, channel);
-        });
-        channel.addEventListener('message', (event) => {
+    _wireChannel(peerId, pc, channel, fastChannel) {
+        const handleMessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
                 this.callbacks.onPeerMessage(peerId, msg);
             } catch {
                 // ignore malformed JSON
             }
+        };
+
+        channel.addEventListener('open', () => {
+            this.callbacks.onPeerOpen(peerId, channel);
         });
+        channel.addEventListener('message', handleMessage);
+        if (fastChannel) {
+            fastChannel.addEventListener('message', handleMessage);
+        }
         channel.addEventListener('close', () => {
             this.peers.delete(peerId);
             this.callbacks.onPeerClose(peerId);
@@ -152,18 +158,26 @@ export class P2PHostSession {
         });
     }
 
-    sendTo(peerId, type, payload = {}) {
+    sendTo(peerId, type, payload = {}, fast = false) {
         const entry = this.peers.get(peerId);
-        if (entry && entry.channel && entry.channel.readyState === 'open') {
-            entry.channel.send(JSON.stringify({ type, ...payload }));
+        if (!entry) return;
+        const ch = (fast && entry.fastChannel && entry.fastChannel.readyState === 'open')
+            ? entry.fastChannel
+            : entry.channel;
+        if (ch && ch.readyState === 'open') {
+            ch.send(JSON.stringify({ type, ...payload }));
         }
     }
 
-    broadcast(excludePeerId, type, payload = {}) {
+    broadcast(excludePeerId, type, payload = {}, fast = false) {
         const raw = JSON.stringify({ type, ...payload });
         for (const [peerId, entry] of this.peers.entries()) {
-            if (peerId !== excludePeerId && entry.channel && entry.channel.readyState === 'open') {
-                entry.channel.send(raw);
+            if (peerId === excludePeerId) continue;
+            const ch = (fast && entry.fastChannel && entry.fastChannel.readyState === 'open')
+                ? entry.fastChannel
+                : entry.channel;
+            if (ch && ch.readyState === 'open') {
+                ch.send(raw);
             }
         }
     }
@@ -171,6 +185,7 @@ export class P2PHostSession {
     closeAll() {
         for (const entry of this.peers.values()) {
             try {
+                entry.fastChannel?.close();
                 entry.channel?.close();
                 entry.pc.close();
             } catch {
@@ -193,6 +208,7 @@ export class P2PGuestSession {
         this.callbacks = callbacks;
         this.pc = null;
         this.channel = null;
+        this.fastChannel = null;
     }
 
     /**
@@ -211,19 +227,28 @@ export class P2PGuestSession {
         this.pc = pc;
 
         pc.addEventListener('datachannel', (event) => {
-            this.channel = event.channel;
-            this.channel.addEventListener('open', () => {
-                this.callbacks.onOpen();
-            });
-            this.channel.addEventListener('message', (msgEvent) => {
+            const ch = event.channel;
+            const handleMessage = (msgEvent) => {
                 try {
                     const msg = JSON.parse(msgEvent.data);
                     this.callbacks.onMessage(msg);
                 } catch {
                     // ignore
                 }
+            };
+
+            if (ch.label === 'voxel-fast') {
+                this.fastChannel = ch;
+                ch.addEventListener('message', handleMessage);
+                return;
+            }
+
+            this.channel = ch;
+            ch.addEventListener('open', () => {
+                this.callbacks.onOpen();
             });
-            this.channel.addEventListener('close', () => {
+            ch.addEventListener('message', handleMessage);
+            ch.addEventListener('close', () => {
                 this.callbacks.onClose();
             });
         });
@@ -245,19 +270,24 @@ export class P2PGuestSession {
         });
     }
 
-    send(type, payload = {}) {
-        if (this.channel && this.channel.readyState === 'open') {
-            this.channel.send(JSON.stringify({ type, ...payload }));
+    send(type, payload = {}, fast = false) {
+        const ch = (fast && this.fastChannel && this.fastChannel.readyState === 'open')
+            ? this.fastChannel
+            : this.channel;
+        if (ch && ch.readyState === 'open') {
+            ch.send(JSON.stringify({ type, ...payload }));
         }
     }
 
     close() {
         try {
+            this.fastChannel?.close();
             this.channel?.close();
             this.pc?.close();
         } catch {
             // ignore
         }
+        this.fastChannel = null;
         this.channel = null;
         this.pc = null;
     }

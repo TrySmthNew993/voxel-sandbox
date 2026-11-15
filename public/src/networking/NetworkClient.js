@@ -17,12 +17,14 @@ export class NetworkClient {
      * @param {import('../world/WorldManager.js').WorldManager} opts.world
      * @param {import('../physics/PlayerController.js').PlayerController} opts.player
      * @param {import('../core/EventBus.js').EventBus} opts.bus
+     * @param {import('../core/DayNightCycle.js').DayNightCycle} [opts.dayNight]
      */
-    constructor({ renderer, world, player, bus }) {
+    constructor({ renderer, world, player, bus, dayNight = null }) {
         this.renderer = renderer;
         this.world = world;
         this.player = player;
         this.bus = bus;
+        this.dayNight = dayNight;
 
         this.mode = 'solo'; // 'solo' | 'ws' | 'p2p-host' | 'p2p-guest'
         this.ws = null;
@@ -42,6 +44,7 @@ export class NetworkClient {
 
         this._lastSyncTime = 0;
         this._lastPingTime = 0;
+        this._lastTimeSync = 0;
         this._lastSentState = null;
 
         this.bus.on('world:blockChanged', ({ x, y, z, blockId }) => {
@@ -264,6 +267,10 @@ export class NetworkClient {
                 spawn: { x: guestMeta.x, y: guestMeta.y, z: guestMeta.z },
                 players,
                 blockDeltas: this.world.getSerializedDeltas(),
+                dayNight: this.dayNight ? {
+                    timeOfDay: this.dayNight.timeOfDay,
+                    dayCount: this.dayNight.dayCount,
+                } : null,
             });
 
             this.p2pHost.broadcast(peerId, MSG.PLAYER_JOIN, { player: guestMeta });
@@ -271,7 +278,7 @@ export class NetworkClient {
         }
 
         if (msg.type === MSG.PING) {
-            this.p2pHost.sendTo(peerId, MSG.PONG, { t: msg.t });
+            this.p2pHost.sendTo(peerId, MSG.PONG, { t: msg.t }, true);
             return;
         }
 
@@ -288,11 +295,14 @@ export class NetworkClient {
                 x: msg.x,
                 y: msg.y,
                 z: msg.z,
+                vx: msg.vx || 0,
+                vy: msg.vy || 0,
+                vz: msg.vz || 0,
                 yaw: msg.yaw,
                 pitch: msg.pitch,
                 walking: msg.walking,
                 heldBlock: msg.heldBlock,
-            });
+            }, true);
             return;
         }
 
@@ -348,25 +358,49 @@ export class NetworkClient {
         this._emitPlayerList();
     }
 
-    _send(type, payload = {}) {
+    _send(type, payload = {}, fast = false) {
         if (this.mode === 'ws') {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             this.ws.send(JSON.stringify({ type, ...payload }));
         } else if (this.mode === 'p2p-guest') {
-            this.p2pGuest?.send(type, payload);
+            this.p2pGuest?.send(type, payload, fast);
         } else if (this.mode === 'p2p-host') {
             if (type === MSG.PLAYER_STATE) {
                 this.p2pHost?.broadcast(null, MSG.PLAYER_STATE, {
                     playerId: this.playerId,
                     ...payload,
-                });
+                }, true);
             } else if (type === MSG.BLOCK_SET) {
                 this.p2pHost?.broadcast(null, MSG.BLOCK_UPDATE, {
                     playerId: this.playerId,
                     ...payload,
-                });
+                }, false);
+            } else if (type === MSG.TIME_SYNC) {
+                this.p2pHost?.broadcast(null, MSG.TIME_SYNC, payload, false);
             }
         }
+    }
+
+    syncWorldTime() {
+        if (this.mode !== 'p2p-host' || !this.connected || !this.dayNight) return;
+        this._send(MSG.TIME_SYNC, {
+            timeOfDay: this.dayNight.timeOfDay,
+            dayCount: this.dayNight.dayCount,
+        });
+    }
+
+    _applyTimeSync(data) {
+        if (!this.dayNight || !data || typeof data.timeOfDay !== 'number') return;
+        const oneWaySec = (this.pingMs || 0) * 0.5 / 1000;
+        const latencyOffset = oneWaySec / (this.dayNight.dayLengthSeconds || 600);
+        let syncedTime = data.timeOfDay + latencyOffset;
+        let syncedDay = typeof data.dayCount === 'number' ? data.dayCount : this.dayNight.dayCount;
+        if (syncedTime >= 1) {
+            syncedTime -= Math.floor(syncedTime);
+            syncedDay += 1;
+        }
+        this.dayNight.timeOfDay = syncedTime;
+        this.dayNight.dayCount = syncedDay;
     }
 
     _handleMessage(msg) {
@@ -374,6 +408,9 @@ export class NetworkClient {
             case MSG.WELCOME: {
                 this.playerId = msg.playerId;
                 this.world.resetWorld(msg.seed, msg.blockDeltas || []);
+                if (msg.dayNight) {
+                    this._applyTimeSync(msg.dayNight);
+                }
 
                 const spawn = msg.spawn || this.world.findSafeSpawn(0, 0);
                 this.world.ensureChunkSync(Math.floor(spawn.x / 16), Math.floor(spawn.z / 16));
@@ -419,6 +456,13 @@ export class NetworkClient {
             case MSG.BLOCK_UPDATE: {
                 if (msg.playerId !== this.playerId) {
                     this.world.setBlockWorld(msg.x, msg.y, msg.z, msg.blockId, true);
+                }
+                break;
+            }
+
+            case MSG.TIME_SYNC: {
+                if (this.mode !== 'p2p-host') {
+                    this._applyTimeSync(msg);
                 }
                 break;
             }
@@ -482,11 +526,15 @@ export class NetworkClient {
         if (nowMs - this._lastSyncTime >= NET_TICK_MS) {
             this._lastSyncTime = nowMs;
             const p = this.player.position;
+            const v = this.player.velocity;
             const yaw = Number(this.player.yaw.toFixed(3));
             const pitch = Number(this.player.pitch.toFixed(3));
             const x = Number(p.x.toFixed(3));
             const y = Number(p.y.toFixed(3));
             const z = Number(p.z.toFixed(3));
+            const vx = Number(v.x.toFixed(2));
+            const vy = Number(v.y.toFixed(2));
+            const vz = Number(v.z.toFixed(2));
             const walking = this.player.isMovingHorizontally();
 
             const prev = this._lastSentState;
@@ -495,20 +543,28 @@ export class NetworkClient {
                 Math.abs(prev.x - x) > 0.002 ||
                 Math.abs(prev.y - y) > 0.002 ||
                 Math.abs(prev.z - z) > 0.002 ||
+                Math.abs(prev.vx - vx) > 0.05 ||
+                Math.abs(prev.vy - vy) > 0.05 ||
+                Math.abs(prev.vz - vz) > 0.05 ||
                 Math.abs(prev.yaw - yaw) > 0.003 ||
                 Math.abs(prev.pitch - pitch) > 0.003 ||
                 prev.walking !== walking ||
                 prev.heldBlock !== selectedBlockId;
 
             if (changed) {
-                this._lastSentState = { x, y, z, yaw, pitch, walking, heldBlock: selectedBlockId };
-                this._send(MSG.PLAYER_STATE, this._lastSentState);
+                this._lastSentState = { x, y, z, vx, vy, vz, yaw, pitch, walking, heldBlock: selectedBlockId };
+                this._send(MSG.PLAYER_STATE, this._lastSentState, true);
             }
+        }
+
+        if (this.mode === 'p2p-host' && this.dayNight && nowMs - this._lastTimeSync >= 2000) {
+            this._lastTimeSync = nowMs;
+            this.syncWorldTime();
         }
 
         if (this.mode !== 'p2p-host' && nowMs - this._lastPingTime >= 2000) {
             this._lastPingTime = nowMs;
-            this._send(MSG.PING, { t: Math.round(nowMs) });
+            this._send(MSG.PING, { t: Math.round(nowMs) }, true);
         }
     }
 

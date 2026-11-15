@@ -22,6 +22,9 @@ export class RemotePlayerMesh {
 
         this.group = new THREE.Group();
         this.targetPos = new THREE.Vector3(data.x || 0, data.y || 64, data.z || 0);
+        this.targetVel = new THREE.Vector3(0, 0, 0);
+        this._predPos = new THREE.Vector3().copy(this.targetPos);
+        this.snapshotAge = 0;
         this.targetYaw = data.yaw || 0;
         this.targetPitch = data.pitch || 0;
         this.walking = false;
@@ -155,17 +158,37 @@ export class RemotePlayerMesh {
                 (state.z - this.targetPos.z) ** 2;
             this.walking = Boolean(state.walking) || distSq > 0.0004;
             this.targetPos.set(state.x, state.y, state.z);
+            this.snapshotAge = 0;
+
+            if (typeof state.vx === 'number') {
+                this.targetVel.set(state.vx, state.vy || 0, state.vz || 0);
+            } else {
+                this.targetVel.set(0, 0, 0);
+            }
+
+            // Snap immediately on large teleports (> 8 blocks)
+            if (this.group.position.distanceToSquared(this.targetPos) > 64) {
+                this.group.position.copy(this.targetPos);
+            }
         }
         if (typeof state.yaw === 'number') this.targetYaw = state.yaw;
         if (typeof state.pitch === 'number') this.targetPitch = state.pitch;
     }
 
     update(dt) {
-        const smooth = 1 - Math.exp(-16 * dt);
+        this.snapshotAge = Math.min(0.12, this.snapshotAge + dt);
+        const lead = Math.min(0.08, this.snapshotAge);
+        this._predPos.set(
+            this.targetPos.x + this.targetVel.x * lead,
+            this.targetPos.y + this.targetVel.y * lead,
+            this.targetPos.z + this.targetVel.z * lead
+        );
+
+        const smooth = 1 - Math.exp(-24 * dt);
         const prevX = this.group.position.x;
         const prevZ = this.group.position.z;
 
-        this.group.position.lerp(this.targetPos, smooth);
+        this.group.position.lerp(this._predPos, smooth);
         this.bodyPivot.rotation.y = lerpAngle(this.bodyPivot.rotation.y, this.targetYaw, smooth);
         this.headPivot.rotation.x = THREE.MathUtils.lerp(this.headPivot.rotation.x, this.targetPitch, smooth);
 

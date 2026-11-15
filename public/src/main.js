@@ -80,7 +80,7 @@ function bootstrap() {
     });
     const heldView = new HeldItemView(renderer.camera, atlas, renderer.scene);
 
-    const network = new NetworkClient({ renderer, world, player, bus });
+    const network = new NetworkClient({ renderer, world, player, bus, dayNight });
     const hud = new HUD({ atlas, bus, inventory, crafting });
     const menu = new MenuModal({ bus, world, player, network, hud });
 
@@ -436,6 +436,7 @@ function bootstrap() {
         mobManager.spawnInitialMobs(player.position, dayNight.isNight());
         hud.renderHealth(player.health, player.maxHealth);
         hud.renderHunger(player.hunger, player.maxHunger);
+        network.syncWorldTime();
         hud.showToast('World imported successfully!');
         return true;
     }
