@@ -16,6 +16,10 @@ export const BLOCK_IDS = Object.freeze({
     WATER: 10,
     SNOW: 11,
     BEDROCK: 12,
+    COAL_ORE: 13,
+    IRON_ORE: 14,
+    GOLD_ORE: 15,
+    TORCH: 16,
 });
 
 export const TILE_INDEX = Object.freeze({
@@ -34,7 +38,8 @@ export const TILE_INDEX = Object.freeze({
     SNOW: 12,
     SNOW_SIDE: 13,
     BEDROCK: 14,
-    // Non-block items, food, and instruments/tools (tiles 16..30)
+    COAL_ORE: 15,
+    // Row 1 (tiles 16..31)
     STICK: 16,
     WOODEN_PICKAXE: 17,
     WOODEN_AXE: 18,
@@ -50,6 +55,15 @@ export const TILE_INDEX = Object.freeze({
     IRON_PICKAXE: 28,
     IRON_AXE: 29,
     IRON_SWORD: 30,
+    IRON_SHOVEL: 31,
+    // Row 2 (tiles 32..39)
+    IRON_ORE: 32,
+    GOLD_ORE: 33,
+    TORCH: 34,
+    COAL: 35,
+    IRON_INGOT: 36,
+    GOLD_INGOT: 37,
+    COOKED_PORKCHOP: 38,
 });
 
 /**
@@ -265,6 +279,66 @@ export const BLOCKS = Object.freeze({
         hardness: Infinity,
         preferredTool: null,
         dropId: 0,
+    },
+    [BLOCK_IDS.COAL_ORE]: {
+        id: BLOCK_IDS.COAL_ORE,
+        name: 'Coal Ore',
+        solid: true,
+        selectable: true,
+        breakable: true,
+        opaque: true,
+        renderPass: 'opaque',
+        cullSameType: true,
+        faces: { top: TILE_INDEX.COAL_ORE, bottom: TILE_INDEX.COAL_ORE, side: TILE_INDEX.COAL_ORE },
+        previewTile: TILE_INDEX.COAL_ORE,
+        hardness: 1.35,
+        preferredTool: 'pickaxe',
+        dropId: 105, // ITEM_IDS.COAL
+    },
+    [BLOCK_IDS.IRON_ORE]: {
+        id: BLOCK_IDS.IRON_ORE,
+        name: 'Iron Ore',
+        solid: true,
+        selectable: true,
+        breakable: true,
+        opaque: true,
+        renderPass: 'opaque',
+        cullSameType: true,
+        faces: { top: TILE_INDEX.IRON_ORE, bottom: TILE_INDEX.IRON_ORE, side: TILE_INDEX.IRON_ORE },
+        previewTile: TILE_INDEX.IRON_ORE,
+        hardness: 1.65,
+        preferredTool: 'pickaxe',
+        dropId: BLOCK_IDS.IRON_ORE,
+    },
+    [BLOCK_IDS.GOLD_ORE]: {
+        id: BLOCK_IDS.GOLD_ORE,
+        name: 'Gold Ore',
+        solid: true,
+        selectable: true,
+        breakable: true,
+        opaque: true,
+        renderPass: 'opaque',
+        cullSameType: true,
+        faces: { top: TILE_INDEX.GOLD_ORE, bottom: TILE_INDEX.GOLD_ORE, side: TILE_INDEX.GOLD_ORE },
+        previewTile: TILE_INDEX.GOLD_ORE,
+        hardness: 1.8,
+        preferredTool: 'pickaxe',
+        dropId: BLOCK_IDS.GOLD_ORE,
+    },
+    [BLOCK_IDS.TORCH]: {
+        id: BLOCK_IDS.TORCH,
+        name: 'Ember Torch',
+        solid: false,
+        selectable: true,
+        breakable: true,
+        opaque: false,
+        renderPass: 'cutout',
+        cullSameType: false,
+        faces: { top: TILE_INDEX.TORCH, bottom: TILE_INDEX.WOOD_SIDE, side: TILE_INDEX.TORCH },
+        previewTile: TILE_INDEX.TORCH,
+        hardness: 0.12,
+        preferredTool: null,
+        dropId: BLOCK_IDS.TORCH,
     },
 });
 

@@ -52,9 +52,17 @@ export class PlayerController {
         this.pointerLocked = false;
         this.sensitivity = 0.0022;
 
-        // Survival health, fall tracking, and combat state
+        // Survival health, hunger, oxygen, fall tracking, and combat state
         this.maxHealth = 20;
         this.health = 20;
+        this.maxHunger = 20;
+        this.hunger = 20;
+        this.exhaustion = 0;
+        this.starveTimer = 0;
+        this.maxOxygen = 10;
+        this.oxygen = 10;
+        this.oxygenDrainTimer = 0;
+        this.drownTimer = 0;
         this.isDead = false;
         this.deathCause = '';
         this.fallDistance = 0;
@@ -62,6 +70,7 @@ export class PlayerController {
         this.hurtFlashTimer = 0;
         this.regenTimer = 0;
         this.primaryHeld = false;
+        this.stepAccum = 0;
 
         this.keys = new Set();
         this.walkBobPhase = 0;
@@ -239,13 +248,54 @@ export class PlayerController {
     }
 
     /**
-     * Respawn the player at the given safe world coordinates with full health.
+     * Restore player hunger (e.g. from eating Apple or Porkchop).
+     * @param {number} amount
+     * @returns {boolean}
+     */
+    feed(amount) {
+        if (this.isDead || amount <= 0 || this.hunger >= this.maxHunger) return false;
+        this.hunger = Math.min(this.maxHunger, this.hunger + amount);
+        this.exhaustion = 0;
+        this.bus?.emit('player:hungerChanged', {
+            hunger: this.hunger,
+            maxHunger: this.maxHunger,
+        });
+        return true;
+    }
+
+    /**
+     * Accumulate hunger exhaustion from sprinting, jumping, or mining.
+     * @param {number} amount
+     */
+    addExhaustion(amount) {
+        if (this.isDead || this.flying || amount <= 0) return;
+        this.exhaustion += amount;
+        if (this.exhaustion >= 4.0) {
+            this.exhaustion -= 4.0;
+            if (this.hunger > 0) {
+                this.hunger = Math.max(0, this.hunger - 1);
+                this.bus?.emit('player:hungerChanged', {
+                    hunger: this.hunger,
+                    maxHunger: this.maxHunger,
+                });
+            }
+        }
+    }
+
+    /**
+     * Respawn the player at the given safe world coordinates with full health, hunger, and oxygen.
      * @param {{x: number, y: number, z: number}} [spawnPos]
      */
     respawn(spawnPos = null) {
         this.isDead = false;
         this.deathCause = '';
         this.health = this.maxHealth;
+        this.hunger = this.maxHunger;
+        this.exhaustion = 0;
+        this.starveTimer = 0;
+        this.oxygen = this.maxOxygen;
+        this.oxygenDrainTimer = 0;
+        this.drownTimer = 0;
         this.fallDistance = 0;
         this.invulnerableTimer = 1.2;
         this.hurtFlashTimer = 0;
@@ -258,6 +308,14 @@ export class PlayerController {
         this.bus?.emit('player:healthChanged', {
             health: this.health,
             maxHealth: this.maxHealth,
+        });
+        this.bus?.emit('player:hungerChanged', {
+            hunger: this.hunger,
+            maxHunger: this.maxHunger,
+        });
+        this.bus?.emit('player:oxygenChanged', {
+            oxygen: this.oxygen,
+            maxOxygen: this.maxOxygen,
         });
         this.bus?.emit('player:respawned', {
             position: { ...this.position },
@@ -318,12 +376,58 @@ export class PlayerController {
             this.hurtFlashTimer = Math.max(0, this.hurtFlashTimer - dt);
         }
 
-        // Slow natural health regeneration after 7s out of combat
-        if (!this.isDead && this.health > 0 && this.health < this.maxHealth) {
+        // Natural health regeneration when well-fed (hunger >= 17)
+        if (!this.isDead && this.health > 0 && this.health < this.maxHealth && this.hunger >= 17) {
             this.regenTimer += dt;
-            if (this.regenTimer >= 7.0) {
-                this.regenTimer = 5.0; // +1 HP every 2s once regen starts
-                this.heal(1);
+            if (this.regenTimer >= 3.5) {
+                this.regenTimer = 1.5; // +1 HP every 2s while well-fed
+                if (this.heal(1)) {
+                    this.addExhaustion(0.8);
+                }
+            }
+        } else {
+            this.regenTimer = 0;
+        }
+
+        // Starvation damage when hunger hits 0
+        if (!this.isDead && !this.flying && this.hunger <= 0 && this.health > 1) {
+            this.starveTimer += dt;
+            if (this.starveTimer >= 3.5) {
+                this.starveTimer = 0;
+                this.takeDamage(1, 'Starvation');
+            }
+        } else {
+            this.starveTimer = 0;
+        }
+
+        // Underwater oxygen bubbles and drowning
+        if (!this.isDead && !this.flying && this.eyeInWater) {
+            this.oxygenDrainTimer += dt;
+            if (this.oxygen > 0) {
+                if (this.oxygenDrainTimer >= 1.5) {
+                    this.oxygenDrainTimer = 0;
+                    this.oxygen = Math.max(0, this.oxygen - 1);
+                    this.bus?.emit('player:oxygenChanged', {
+                        oxygen: this.oxygen,
+                        maxOxygen: this.maxOxygen,
+                    });
+                }
+            } else {
+                this.drownTimer += dt;
+                if (this.drownTimer >= 1.0) {
+                    this.drownTimer = 0;
+                    this.takeDamage(2, 'Drowning');
+                }
+            }
+        } else {
+            this.oxygenDrainTimer = 0;
+            this.drownTimer = 0;
+            if (this.oxygen < this.maxOxygen) {
+                this.oxygen = this.maxOxygen;
+                this.bus?.emit('player:oxygenChanged', {
+                    oxygen: this.oxygen,
+                    maxOxygen: this.maxOxygen,
+                });
             }
         }
 
@@ -361,7 +465,8 @@ export class PlayerController {
             if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) moveRight -= 1;
             jumpPressed = this.keys.has('Space');
             descendPressed = this.keys.has('KeyC');
-            this.sprinting = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && moveForward > 0;
+            const canSprint = this.flying || this.hunger > 6;
+            this.sprinting = canSprint && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && moveForward > 0;
         } else {
             this.sprinting = false;
         }
@@ -411,6 +516,7 @@ export class PlayerController {
             if (jumpPressed && this.onGround) {
                 this.velocity.y = JUMP_VELOCITY;
                 this.onGround = false;
+                this.addExhaustion(this.sprinting ? 0.2 : 0.05);
             }
             this.velocity.y = Math.max(this.velocity.y - GRAVITY * dt, -TERMINAL_VELOCITY);
         }
@@ -419,6 +525,21 @@ export class PlayerController {
         this._moveAndCollideX(this.velocity.x * dt);
         this._moveAndCollideY(this.velocity.y * dt);
         this._moveAndCollideZ(this.velocity.z * dt);
+
+        // Sprint exhaustion & footstep audio cadence
+        const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+        if (horizSpeed > 0.5 && !this.flying) {
+            if (this.sprinting) {
+                this.addExhaustion(horizSpeed * dt * 0.1);
+            }
+            if (this.onGround || this.inWater) {
+                this.stepAccum += horizSpeed * dt;
+                if (this.stepAccum >= 2.2) {
+                    this.stepAccum = 0;
+                    this.bus?.emit('player:step', { inWater: this.inWater });
+                }
+            }
+        }
 
         // Respawn rescue if somehow fallen below world floor
         if (this.position.y < -16) {

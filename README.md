@@ -14,18 +14,24 @@ https://trysmthnew993.github.io/voxel-sandbox/
 
 - **Procedural Infinite World**: Streaming `16 × 128 × 16` chunks generated asynchronously in a Web Worker pool using 2D & 3D Simplex noise (Plains, Forest, Desert, and Alpine Mountain biomes, water basins, 3D subterranean caves, and cross-chunk-safe procedural trees).
 - **60 FPS Voxel Meshing**: Neighbor-aware hidden-face culling, per-vertex voxel Ambient Occlusion (AO), multi-pass rendering (`opaque`, alpha-tested `cutout` leaves, `translucent` glass & water), procedural 16×16 pixel-art `TextureAtlas`, and throttled GPU geometry uploads.
-- **Voxel Mechanics & Progressive Mining**: Amanatides–Woo 3D DDA raycasting for block targeting, progressive tool-accelerated block breaking (`LMB`), block placement & food consumption (`RMB`), pick-block (`MMB`), and a 3D voxel-extruded first-person held item/instrument viewmodel.
+- **Voxel Mechanics & Progressive Mining**: Amanatides–Woo 3D DDA raycasting for block targeting, progressive tool-accelerated block breaking (`LMB`) with a 10-stage procedural crack overlay, block placement & food consumption (`RMB`), pick-block (`MMB`), and a 3D voxel-extruded first-person held item/instrument viewmodel.
+- **Day/Night Cycle & Dynamic Lighting (`DayNightCycle`, `Renderer`)**:
+  - 10-minute celestial cycle with rotating Sun, Moon, twilight/starfield sky transitions, and pooled dynamic `PointLight` illumination from placeable **Ember Torches**.
+- **Underground Ores & Zero-Starter Progression**:
+  - Players begin with empty hands and must gather Wood, Cobblestone, **Coal Ore**, **Iron Ore**, and **Gold Ore** veins underground to smelt ingots and craft every tool tier from scratch.
 - **Collectible 3D Block Drops & Inventory (`InventoryManager`, `DropManager`)**:
   - Breaking blocks or defeating mobs spawns rotating, bobbing 3D item drops on the ground that magnetically fly toward the player when close (`< 3.5` blocks) and add into the player's inventory.
   - 9-slot bottom Hotbar + 27-slot Backpack Inventory storing item types, stack counts (`x64`), and tool/weapon badges (`2.6x`, `4.2x`, `6.5x`, `6ATK`, `+6HP`), with click-to-swap/merge and `Shift+Click` quick-transfer.
 - **Crafting System & Instruments (`CraftingSystem`, `ItemRegistry`)**:
-  - Toggleable via `E`, `C`, or the HUD button, featuring recipes for **Oak Planks**, **Sticks**, and full **Wooden**, **Stone**, and **Iron** tool tiers (**Pickaxe**, **Axe**, **Sword**, **Shovel**), plus block refinements.
-  - Tools significantly accelerate mining speed on matching block categories (Pickaxes on Stone/Cobblestone/Glass, Axes on Wood/Planks/Leaves, Shovels on Dirt/Grass/Sand/Snow) and Swords boost melee combat damage.
-- **Survival Mechanics & Respawn**:
-  - 20 HP (10-heart) player health pool, height-based fall damage, zombie melee damage with red vignette flash & knockback, food healing (`Porkchop`, `Wild Apple`, `Rotten Flesh`), and a Death & Respawn overlay (`YOU DIED` → `Respawn in World`).
-- **3D Mobs & Entities (`MobManager`)**:
-  - Articulated 3D passive animals (**Wild Pig** that wanders, climbs 1-block steps, panics when hit, and drops `Porkchop`) and hostile mobs (**Zombie** with outstretched arms that detects the player within `18` blocks, pursues them across terrain, and deals melee touch damage).
+  - Toggleable via `E`, `C`, or the HUD button, featuring recipes for **Oak Planks**, **Wooden Sticks**, **Ember Torches**, **Iron/Gold Ingots**, **Roasted Porkchop**, and full **Wooden**, **Stone**, and **Iron** tool tiers (**Pickaxe**, **Axe**, **Sword**, **Shovel**).
+  - Tools significantly accelerate mining speed on matching block categories (Pickaxes on Stone/Ores/Glass, Axes on Wood/Planks/Leaves, Shovels on Dirt/Grass/Sand/Snow) and Swords boost melee combat damage.
+- **Survival Mechanics, Hunger, Oxygen & Respawn**:
+  - 20 HP (10-heart) health bar, 20-point Hunger bar (sprint exhaustion, starvation, natural regen when well-fed, food restoration), 10-bubble underwater Oxygen meter with drowning damage, height-based fall damage, and a Death & Respawn overlay (`YOU DIED` → `Respawn in World`).
+- **3D Mobs & Night-Only Zombies (`MobManager`)**:
+  - Articulated 3D passive animals (**Wild Pig** that wanders, climbs 1-block steps, panics when hit, and drops `Porkchop`) and hostile mobs (**Zombie** with outstretched arms that spawn only at night, burn in daytime sunlight, detect the player within `18` blocks, and deal melee touch damage).
   - Mobs take weapon damage on `LMB`, flash bright red on hit, experience knockback, and drop collectible 3D items upon death.
+- **Procedural Web Audio (`AudioSystem`)**:
+  - Zero-dependency synthesized sound effects for footsteps, mining taps, block breaks/placements, pickups, combat hits, eating, and crafting (toggleable with `M` or the top-right Sound button).
 - **First-Person Physics**: PointerLock mouse look, fixed-timestep `1/60 s` axis-separated AABB collision detection, gravity, jumping, sprinting (`Shift`), swimming buoyancy, and creative fly toggle (`F`).
 - **Two Multiplayer Modes**:
   1. **Browser P2P (WebRTC DataChannels — No Server Needed)**: Host and join directly from the browser on GitHub Pages using compact `VX1:` Invite/Answer codes.

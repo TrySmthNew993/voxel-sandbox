@@ -25,15 +25,59 @@ export const CRAFTING_RECIPES = Object.freeze([
         category: 'materials',
         output: { id: BLOCK_IDS.PLANKS, count: 4 },
         ingredients: [{ id: BLOCK_IDS.WOOD, count: 1 }],
-        summary: 'Saw 1 Oak Wood log into 4 sturdy Oak Planks.',
+        summary: 'Mill 1 Oak Log into 4 sturdy Oak Planks.',
     },
     {
         id: 'sticks',
-        name: 'Sticks (x4)',
+        name: 'Wooden Sticks (x4)',
         category: 'materials',
         output: { id: ITEM_IDS.STICK, count: 4 },
         ingredients: [{ id: BLOCK_IDS.PLANKS, count: 2 }],
         summary: 'Carve 2 Oak Planks into 4 wooden tool handles.',
+    },
+    {
+        id: 'ember_torch',
+        name: 'Ember Torch (x4)',
+        category: 'blocks',
+        output: { id: BLOCK_IDS.TORCH, count: 4 },
+        ingredients: [
+            { id: ITEM_IDS.COAL, count: 1 },
+            { id: ITEM_IDS.STICK, count: 1 },
+        ],
+        summary: 'Craft 4 glowing Ember Torches to light up caves and night camps.',
+    },
+    {
+        id: 'iron_ingot',
+        name: 'Iron Ingot',
+        category: 'materials',
+        output: { id: ITEM_IDS.IRON_INGOT, count: 1 },
+        ingredients: [
+            { id: BLOCK_IDS.IRON_ORE, count: 1 },
+            { id: ITEM_IDS.COAL, count: 1 },
+        ],
+        summary: 'Smelt 1 Iron Ore with 1 Coal into a forged Iron Ingot.',
+    },
+    {
+        id: 'gold_ingot',
+        name: 'Gold Ingot',
+        category: 'materials',
+        output: { id: ITEM_IDS.GOLD_INGOT, count: 1 },
+        ingredients: [
+            { id: BLOCK_IDS.GOLD_ORE, count: 1 },
+            { id: ITEM_IDS.COAL, count: 1 },
+        ],
+        summary: 'Smelt 1 Gold Ore with 1 Coal into a pure Gold Ingot.',
+    },
+    {
+        id: 'roasted_porkchop',
+        name: 'Roasted Porkchop',
+        category: 'materials',
+        output: { id: ITEM_IDS.COOKED_PORKCHOP, count: 1 },
+        ingredients: [
+            { id: ITEM_IDS.PORKCHOP, count: 1 },
+            { id: ITEM_IDS.COAL, count: 1 },
+        ],
+        summary: 'Cook Raw Porkchop over Coal. Restores 8 Hunger and 5 Health.',
     },
     {
         id: 'wooden_pickaxe',
@@ -44,7 +88,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.PLANKS, count: 3 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '2.6x mining speed on Stone & Cobblestone (3 ATK).',
+        summary: '2.6x mining speed on Stone and Ores (3 ATK).',
     },
     {
         id: 'wooden_axe',
@@ -55,7 +99,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.PLANKS, count: 3 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '2.6x chopping speed on Wood & Planks (4.5 ATK).',
+        summary: '2.6x chopping speed on Wood and Planks (4.5 ATK).',
     },
     {
         id: 'wooden_sword',
@@ -66,7 +110,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.PLANKS, count: 2 },
             { id: ITEM_IDS.STICK, count: 1 },
         ],
-        summary: 'Fast melee combat weapon against mobs (6 ATK).',
+        summary: 'Light melee blade for defending against mobs (6 ATK).',
     },
     {
         id: 'wooden_shovel',
@@ -77,7 +121,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.PLANKS, count: 1 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '2.6x digging speed on Dirt, Grass, Sand & Snow.',
+        summary: '2.6x digging speed on Dirt, Grass, Sand, and Snow.',
     },
     {
         id: 'stone_pickaxe',
@@ -88,7 +132,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.COBBLESTONE, count: 3 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '4.2x mining speed on Stone & Cobblestone (4 ATK).',
+        summary: '4.2x mining speed on Stone and Ores (4 ATK).',
     },
     {
         id: 'stone_axe',
@@ -99,7 +143,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.COBBLESTONE, count: 3 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '4.2x chopping speed on Wood & Planks (6 ATK).',
+        summary: '4.2x chopping speed on Wood and Planks (6 ATK).',
     },
     {
         id: 'stone_sword',
@@ -121,7 +165,7 @@ export const CRAFTING_RECIPES = Object.freeze([
             { id: BLOCK_IDS.COBBLESTONE, count: 1 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '4.2x digging speed on Dirt, Grass, Sand & Snow.',
+        summary: '4.2x digging speed on Dirt, Grass, Sand, and Snow.',
     },
     {
         id: 'iron_pickaxe',
@@ -129,10 +173,10 @@ export const CRAFTING_RECIPES = Object.freeze([
         category: 'tools',
         output: { id: ITEM_IDS.IRON_PICKAXE, count: 1 },
         ingredients: [
-            { id: BLOCK_IDS.STONE, count: 3 },
+            { id: ITEM_IDS.IRON_INGOT, count: 3 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '6.5x rapid mining speed on Stone & Cobblestone (5 ATK).',
+        summary: '6.5x rapid mining speed on Stone and Gold/Iron Ore (5 ATK).',
     },
     {
         id: 'iron_axe',
@@ -140,10 +184,10 @@ export const CRAFTING_RECIPES = Object.freeze([
         category: 'tools',
         output: { id: ITEM_IDS.IRON_AXE, count: 1 },
         ingredients: [
-            { id: BLOCK_IDS.STONE, count: 3 },
+            { id: ITEM_IDS.IRON_INGOT, count: 3 },
             { id: ITEM_IDS.STICK, count: 2 },
         ],
-        summary: '6.5x rapid chopping speed on Wood & Planks (7.5 ATK).',
+        summary: '6.5x rapid chopping speed on Wood and Planks (7.5 ATK).',
     },
     {
         id: 'iron_sword',
@@ -151,10 +195,21 @@ export const CRAFTING_RECIPES = Object.freeze([
         category: 'tools',
         output: { id: ITEM_IDS.IRON_SWORD, count: 1 },
         ingredients: [
-            { id: BLOCK_IDS.STONE, count: 2 },
+            { id: ITEM_IDS.IRON_INGOT, count: 2 },
             { id: ITEM_IDS.STICK, count: 1 },
         ],
-        summary: 'Masterwork blade with lethal strike damage (10 ATK).',
+        summary: 'Masterwork forged blade with lethal strike damage (10 ATK).',
+    },
+    {
+        id: 'iron_shovel',
+        name: 'Iron Shovel',
+        category: 'tools',
+        output: { id: ITEM_IDS.IRON_SHOVEL, count: 1 },
+        ingredients: [
+            { id: ITEM_IDS.IRON_INGOT, count: 1 },
+            { id: ITEM_IDS.STICK, count: 2 },
+        ],
+        summary: '6.5x rapid digging speed on Dirt, Grass, Sand, and Snow.',
     },
     {
         id: 'smelt_stone',
@@ -162,7 +217,7 @@ export const CRAFTING_RECIPES = Object.freeze([
         category: 'blocks',
         output: { id: BLOCK_IDS.STONE, count: 2 },
         ingredients: [{ id: BLOCK_IDS.COBBLESTONE, count: 2 }],
-        summary: 'Refine 2 Cobblestone into 2 Smooth Stone.',
+        summary: 'Refine 2 Cobblestone into 2 Smooth Stone blocks.',
     },
     {
         id: 'smelt_glass',

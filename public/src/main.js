@@ -24,6 +24,8 @@ import {
     getMiningSpeedMultiplier,
 } from './core/ItemRegistry.js';
 import { EventBus } from './core/EventBus.js';
+import { DayNightCycle } from './core/DayNightCycle.js';
+import { AudioSystem } from './core/AudioSystem.js';
 import { TextureAtlas } from './renderer/TextureAtlas.js';
 import { Renderer } from './renderer/Renderer.js';
 import { HeldItemView } from './renderer/HeldItemView.js';
@@ -41,9 +43,18 @@ import { MenuModal } from './ui/MenuModal.js';
 function bootstrap() {
     const viewport = document.getElementById('game-viewport');
     const bus = new EventBus();
+    const dayNight = new DayNightCycle(600, 0.30);
+    const audio = new AudioSystem();
     const atlas = new TextureAtlas();
     const renderer = new Renderer(viewport, atlas);
     const world = new WorldManager(renderer, bus);
+
+    // Track placed torches for pooled dynamic PointLights
+    const activeTorches = new Map();
+    let torchListCache = [];
+    function syncTorchList() {
+        torchListCache = Array.from(activeTorches.values());
+    }
 
     const player = new PlayerController({
         world,
@@ -73,11 +84,13 @@ function bootstrap() {
     const hud = new HUD({ atlas, bus, inventory, crafting });
     const menu = new MenuModal({ bus, world, player, network, hud });
 
-    // Initialize Solo world, ensure chunks around spawn, and spawn nearby animals & zombies
+    // Initialize Solo world, ensure chunks around spawn, and spawn nearby passive animals
     function startSoloWorld(seed) {
         world.resetWorld(seed);
         dropManager.clearAll();
         mobManager.clearAll();
+        activeTorches.clear();
+        syncTorchList();
 
         const spawn = world.findSafeSpawn(0, 0);
         const scx = Math.floor(spawn.x / CHUNK_SIZE_X);
@@ -88,10 +101,31 @@ function bootstrap() {
             }
         }
         player.respawn(spawn);
-        mobManager.spawnInitialMobs(spawn);
+        mobManager.spawnInitialMobs(spawn, dayNight.isNight());
     }
 
     startSoloWorld(DEFAULT_SEED);
+
+    // Wire audio and survival HUD bars
+    bus.on('player:step', ({ inWater }) => audio.playStep(inWater));
+    bus.on('player:damaged', () => audio.playPlayerHurt());
+    bus.on('inventory:itemAdded', () => audio.playPickup());
+    bus.on('crafting:crafted', () => audio.playCraft());
+    bus.on('mob:damaged', () => audio.playHitMob());
+    bus.on('mob:killed', () => audio.playMobDeath());
+    bus.on('hud:toggleMute', () => {
+        const muted = audio.toggleMute();
+        hud.setAudioMuted(muted);
+        hud.showToast(muted ? 'Audio Muted' : 'Audio Enabled');
+    });
+    bus.on('player:hungerChanged', ({ hunger, maxHunger }) => {
+        hud.renderHunger(hunger, maxHunger);
+    });
+    bus.on('player:oxygenChanged', ({ oxygen, maxOxygen }) => {
+        hud.renderOxygen(oxygen, maxOxygen, player.eyeInWater);
+    });
+    hud.renderHunger(player.hunger, player.maxHunger);
+    hud.renderOxygen(player.oxygen, player.maxOxygen, player.eyeInWater);
 
     // Sync held 3D item viewmodel with active hotbar selection
     heldView.setHeldItem(inventory.getSelectedItemId());
@@ -105,6 +139,13 @@ function bootstrap() {
         if (!def || !def.breakable) return false;
         const changed = world.setBlockWorld(x, y, z, BLOCK_IDS.AIR, false);
         if (!changed) return false;
+
+        if (blockId === BLOCK_IDS.TORCH) {
+            activeTorches.delete(`${x},${y},${z}`);
+            syncTorchList();
+        }
+        audio.playBreak();
+        player.addExhaustion(0.025);
 
         const dropId = def.dropId || blockId;
         if (dropId) {
@@ -125,14 +166,18 @@ function bootstrap() {
     // Progressive block mining state
     let miningKey = '';
     let miningProgress = 0;
+    let digSoundTimer = 0;
 
     function resetMining() {
         miningKey = '';
         miningProgress = 0;
+        digSoundTimer = 0;
+        renderer.setCrackProgress(null, 0);
     }
 
     // Primary Action (LMB): Attack targeted Mob OR start/boost mining targeted Block
     bus.on('player:primaryAction', () => {
+        audio.unlock();
         if (player.isDead) return;
         heldView.triggerSwing();
 
@@ -184,21 +229,26 @@ function bootstrap() {
 
     // Secondary Action (RMB): Eat held Food OR Place held Block from inventory
     bus.on('player:secondaryAction', () => {
+        audio.unlock();
         if (player.isDead) return;
         const activeSlot = inventory.getActiveSlot();
         if (!activeSlot || activeSlot.count <= 0) return;
 
         const itemDef = getItemDef(activeSlot.id);
 
-        // 1. Consumable food healing
-        if (itemDef.healAmount > 0) {
-            if (player.health < player.maxHealth) {
-                player.heal(itemDef.healAmount);
+        // 1. Consumable food (restores hunger and/or health)
+        if (itemDef.healAmount > 0 || itemDef.hungerRestore > 0) {
+            const needHealth = itemDef.healAmount > 0 && player.health < player.maxHealth;
+            const needHunger = itemDef.hungerRestore > 0 && player.hunger < player.maxHunger;
+            if (needHealth || needHunger) {
+                if (itemDef.healAmount > 0) player.heal(itemDef.healAmount);
+                if (itemDef.hungerRestore > 0) player.feed(itemDef.hungerRestore);
                 inventory.consumeActiveSlot(1);
                 heldView.triggerSwing();
-                hud.showToast(`Ate ${itemDef.name} (+${itemDef.healAmount} HP)`);
+                audio.playEat();
+                hud.showToast(`Ate ${itemDef.name}`);
             } else {
-                hud.showToast('Health is already full!');
+                hud.showToast('Health & Hunger are full!');
             }
             return;
         }
@@ -212,6 +262,11 @@ function bootstrap() {
         if (player.wouldBlockIntersectPlayer(x, y, z)) return;
 
         if (world.setBlockWorld(x, y, z, activeSlot.id, false)) {
+            if (activeSlot.id === BLOCK_IDS.TORCH) {
+                activeTorches.set(`${x},${y},${z}`, { x, y, z });
+                syncTorchList();
+            }
+            audio.playPlace();
             inventory.consumeActiveSlot(1);
             heldView.triggerSwing();
         }
@@ -291,11 +346,14 @@ function bootstrap() {
         renderer,
         hud,
         menu,
+        dayNight,
+        audio,
         breakBlockAndSpawnDrops,
     };
 
     // Clicking canvas directly when modals are closed re-engages pointer lock
     renderer.webgl.domElement.addEventListener('click', () => {
+        audio.unlock();
         if (!menu.visible && !paletteOpen && !player.isDead && !player.pointerLocked) {
             player.requestPointerLock();
         }
@@ -304,12 +362,24 @@ function bootstrap() {
     // Fixed-timestep physics + 60 FPS WebGL render loop
     let lastTime = performance.now();
     let accumulator = 0;
+    let lastClockText = '';
 
     function frame(nowMs) {
         requestAnimationFrame(frame);
 
         const rawDelta = Math.min((nowMs - lastTime) / 1000, MAX_FRAME_DELTA);
         lastTime = nowMs;
+
+        // Advance day/night cycle and update sky/sun/moon/stars
+        dayNight.update(rawDelta);
+        renderer.updateDayNight(dayNight, player.position);
+        renderer.updateTorchLights(torchListCache, player.position, nowMs * 0.001);
+
+        const clockText = dayNight.getFormattedClock();
+        if (clockText !== lastClockText) {
+            lastClockText = clockText;
+            hud.updateTimeBadge(clockText, dayNight.getPhaseLabel());
+        }
 
         // Stream chunks & flush throttled GPU uploads even while in menu so world loads immediately
         world.update(player.position.x, player.position.z);
@@ -318,13 +388,14 @@ function bootstrap() {
         while (accumulator >= PHYSICS_TIMESTEP) {
             player.updatePhysics(PHYSICS_TIMESTEP);
             dropManager.update(PHYSICS_TIMESTEP, player.position, player.isDead);
-            mobManager.update(PHYSICS_TIMESTEP, player);
+            mobManager.update(PHYSICS_TIMESTEP, player, dayNight.isNight());
             accumulator -= PHYSICS_TIMESTEP;
         }
 
         // Update underwater atmosphere
         renderer.setUnderwater(player.eyeInWater);
         hud.setUnderwater(player.eyeInWater);
+        hud.renderOxygen(player.oxygen, player.maxOxygen, player.eyeInWater);
 
         // Update voxel & mob targeting + continuous block breaking
         let activelyMining = false;
@@ -366,6 +437,11 @@ function bootstrap() {
                         miningKey = key;
                         miningProgress = 0;
                     }
+                    digSoundTimer += rawDelta;
+                    if (digSoundTimer >= 0.22) {
+                        digSoundTimer = 0;
+                        audio.playDig();
+                    }
                     const breakTime = getBlockBreakTime(currentTarget.blockId, heldId);
                     miningProgress += rawDelta / breakTime;
                     if (miningProgress >= 1.0) {
@@ -375,6 +451,8 @@ function bootstrap() {
                 } else if (miningKey !== key) {
                     resetMining();
                 }
+
+                renderer.setCrackProgress(currentTarget.blockPos, miningProgress);
 
                 if (miningProgress > 0) {
                     const multTag = mult > 1.0 ? ` · ${mult}x Speed` : '';

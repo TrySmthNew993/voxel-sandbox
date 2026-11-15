@@ -39,6 +39,13 @@ export class HUD {
 
         this.healthHeartsEl = document.getElementById('health-hearts');
         this.healthTextEl = document.getElementById('health-text');
+        this.hungerDrumsEl = document.getElementById('hunger-drums');
+        this.hungerTextEl = document.getElementById('hunger-text');
+        this.oxygenBarEl = document.getElementById('oxygen-bar');
+        this.oxygenBubblesEl = document.getElementById('oxygen-bubbles');
+        this.oxygenTextEl = document.getElementById('oxygen-text');
+        this.timeClockBadgeEl = document.getElementById('time-clock-badge');
+        this.audioMuteBtn = document.getElementById('audio-mute-btn');
         this.openCraftingBtn = document.getElementById('open-crafting-btn');
 
         this.hotbarEl = document.getElementById('hotbar');
@@ -75,7 +82,7 @@ export class HUD {
         this._bindEvents();
 
         const initialItem = getItemDef(this.getSelectedBlockId());
-        this.showToast(initialItem.name);
+        this.showToast(initialItem ? initialItem.name : 'Gather Wood & Stone to Craft');
     }
 
     _bindEvents() {
@@ -93,6 +100,8 @@ export class HUD {
                 this.bus.emit('hud:debugChanged', this.debugVisible);
             } else if (e.code === 'KeyE' || (e.code === 'KeyC' && !this.paletteOpen)) {
                 this.bus.emit('hud:togglePalette');
+            } else if (e.code === 'KeyM') {
+                this.bus.emit('hud:toggleMute');
             } else if (e.code === 'Escape' && this.paletteOpen) {
                 this.bus.emit('hud:closePalette', false);
             } else if ((e.code === 'KeyR' || e.code === 'Enter') && !this.deathModalEl.classList.contains('hidden')) {
@@ -116,6 +125,11 @@ export class HUD {
         this.openCraftingBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
             this.bus.emit('hud:togglePalette');
+        });
+
+        this.audioMuteBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.bus.emit('hud:toggleMute');
         });
 
         this.respawnBtn?.addEventListener('click', () => {
@@ -187,6 +201,58 @@ export class HUD {
         }
 
         this.healthTextEl.textContent = `${Math.max(0, Math.round(health))} / ${maxHealth} HP`;
+    }
+
+    /**
+     * Render the 10-drumstick hunger bar.
+     */
+    renderHunger(hunger, maxHunger = 20) {
+        if (!this.hungerDrumsEl || !this.hungerTextEl) return;
+        this.hungerDrumsEl.innerHTML = '';
+        const total = Math.ceil(maxHunger / 2);
+        for (let i = 0; i < total; i++) {
+            const val = hunger - i * 2;
+            const span = document.createElement('span');
+            if (val >= 2) {
+                span.className = 'drum-icon full';
+            } else if (val === 1) {
+                span.className = 'drum-icon half';
+            } else {
+                span.className = 'drum-icon';
+            }
+            this.hungerDrumsEl.appendChild(span);
+        }
+        this.hungerTextEl.textContent = `${Math.max(0, Math.round(hunger))} / ${maxHunger}`;
+    }
+
+    /**
+     * Render underwater oxygen bubbles bar (visible only when submerged or recovering).
+     */
+    renderOxygen(oxygen, maxOxygen = 10, underwater = false) {
+        if (!this.oxygenBarEl || !this.oxygenBubblesEl || !this.oxygenTextEl) return;
+        if (!underwater && oxygen >= maxOxygen) {
+            this.oxygenBarEl.classList.add('hidden');
+            return;
+        }
+        this.oxygenBarEl.classList.remove('hidden');
+        this.oxygenBubblesEl.innerHTML = '';
+        for (let i = 0; i < maxOxygen; i++) {
+            const span = document.createElement('span');
+            span.className = i < oxygen ? 'bubble-icon full' : 'bubble-icon';
+            this.oxygenBubblesEl.appendChild(span);
+        }
+        this.oxygenTextEl.textContent = `${Math.max(0, Math.round(oxygen))} / ${maxOxygen} O₂`;
+    }
+
+    updateTimeBadge(clockText, phaseLabel) {
+        if (!this.timeClockBadgeEl) return;
+        this.timeClockBadgeEl.textContent = `${clockText} (${phaseLabel})`;
+    }
+
+    setAudioMuted(muted) {
+        if (!this.audioMuteBtn) return;
+        this.audioMuteBtn.textContent = muted ? 'Sound: OFF' : 'Sound: ON';
+        this.audioMuteBtn.classList.toggle('muted', Boolean(muted));
     }
 
     triggerDamageFlash() {

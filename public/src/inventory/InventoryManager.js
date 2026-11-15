@@ -25,27 +25,11 @@ export class InventoryManager {
     }
 
     /**
-     * Populate hotbar and backpack with a balanced survival & building starter kit.
+     * Reset inventory to empty hands so the player gathers and crafts everything.
      */
     resetToStarterKit() {
         this.slots.fill(null);
-        this.slots[0] = { id: ITEM_IDS.WOODEN_PICKAXE, count: 1 };
-        this.slots[1] = { id: ITEM_IDS.WOODEN_SWORD, count: 1 };
-        this.slots[2] = { id: ITEM_IDS.WOODEN_AXE, count: 1 };
-        this.slots[3] = { id: BLOCK_IDS.WOOD, count: 8 };
-        this.slots[4] = { id: BLOCK_IDS.PLANKS, count: 16 };
-        this.slots[5] = { id: BLOCK_IDS.COBBLESTONE, count: 16 };
-        this.slots[6] = { id: BLOCK_IDS.DIRT, count: 24 };
-        this.slots[7] = { id: ITEM_IDS.STICK, count: 8 };
-        this.slots[8] = { id: ITEM_IDS.APPLE, count: 4 };
-
-        // Extra building blocks in backpack
-        this.slots[9] = { id: BLOCK_IDS.STONE, count: 16 };
-        this.slots[10] = { id: BLOCK_IDS.GLASS, count: 12 };
-        this.slots[11] = { id: BLOCK_IDS.SAND, count: 16 };
-        this.slots[12] = { id: BLOCK_IDS.GRASS, count: 16 };
-        this.slots[13] = { id: BLOCK_IDS.LEAVES, count: 16 };
-        this.slots[14] = { id: BLOCK_IDS.SNOW, count: 12 };
+        this.selectedHotbarIndex = 0;
 
         this._emitChange();
     }

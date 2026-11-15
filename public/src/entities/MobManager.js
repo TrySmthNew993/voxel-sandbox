@@ -47,10 +47,11 @@ export class MobManager {
     }
 
     /**
-     * Spawn an initial cluster of passive animals and hostile zombies near the player's spawn point.
+     * Spawn an initial cluster of passive animals (and zombies only if it is night) near spawn.
      * @param {{x: number, y: number, z: number}} centerPos
+     * @param {boolean} [isNight=false]
      */
-    spawnInitialMobs(centerPos) {
+    spawnInitialMobs(centerPos, isNight = false) {
         this.clearAll();
 
         // Spawn 3 passive pigs within 7..13 blocks
@@ -66,15 +67,16 @@ export class MobManager {
             }
         }
 
-        // Spawn 2 hostile zombies within 13..17 blocks
-        const zombieOffsets = [
-            [-13, -10],
-            [14, -9],
-        ];
-        for (const [dx, dz] of zombieOffsets) {
-            const pos = this._findSurfaceAt(Math.round(centerPos.x + dx), Math.round(centerPos.z + dz), centerPos.y);
-            if (pos) {
-                this.spawnMob('zombie', pos.x, pos.y, pos.z);
+        if (isNight) {
+            const zombieOffsets = [
+                [-13, -10],
+                [14, -9],
+            ];
+            for (const [dx, dz] of zombieOffsets) {
+                const pos = this._findSurfaceAt(Math.round(centerPos.x + dx), Math.round(centerPos.z + dz), centerPos.y);
+                if (pos) {
+                    this.spawnMob('zombie', pos.x, pos.y, pos.z);
+                }
             }
         }
     }
@@ -435,8 +437,9 @@ export class MobManager {
      * Step AI, movement physics, collision, damage flash, and touch attacks for all active mobs.
      * @param {number} dt
      * @param {import('../physics/PlayerController.js').PlayerController} player
+     * @param {boolean} [isNight=false]
      */
-    update(dt, player) {
+    update(dt, player, isNight = false) {
         const playerPos = player.position;
         const playerDead = Boolean(player.isDead);
 
@@ -444,7 +447,7 @@ export class MobManager {
         this.spawnTimer += dt;
         if (this.spawnTimer >= 4.0) {
             this.spawnTimer = 0;
-            this._maintainPopulation(playerPos);
+            this._maintainPopulation(playerPos, isNight);
         }
 
         for (let i = this.mobs.length - 1; i >= 0; i--) {
@@ -479,6 +482,24 @@ export class MobManager {
 
             if (mob.attackCooldown > 0) {
                 mob.attackCooldown = Math.max(0, mob.attackCooldown - dt);
+            }
+
+            // Zombies burn in daytime sunlight
+            if (mob.hostile && !isNight) {
+                mob.sunBurnTimer = (mob.sunBurnTimer || 0) + dt;
+                if (mob.sunBurnTimer >= 1.2) {
+                    mob.sunBurnTimer = 0;
+                    mob.health -= 3;
+                    mob.hurtFlashTimer = 0.22;
+                    this._setMobFlash(mob, true);
+                    if (mob.health <= 0) {
+                        this._killMob(mob);
+                        this._removeMobAt(i);
+                        continue;
+                    }
+                }
+            } else {
+                mob.sunBurnTimer = 0;
             }
 
             const distToPlayer = Math.sqrt(distSq);
@@ -657,7 +678,7 @@ export class MobManager {
         return false;
     }
 
-    _maintainPopulation(playerPos) {
+    _maintainPopulation(playerPos, isNight = false) {
         let passiveCount = 0;
         let hostileCount = 0;
         for (const m of this.mobs) {
@@ -676,7 +697,7 @@ export class MobManager {
             }
         }
 
-        if (hostileCount < MAX_HOSTILE_MOBS) {
+        if (isNight && hostileCount < MAX_HOSTILE_MOBS) {
             const angle = Math.random() * Math.PI * 2;
             const dist = 16 + Math.random() * 16;
             const wx = Math.round(playerPos.x + Math.cos(angle) * dist);

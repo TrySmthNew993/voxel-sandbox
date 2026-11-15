@@ -8,6 +8,7 @@ import {
     getMiningSpeedMultiplier,
 } from '../public/src/core/ItemRegistry.js';
 import { PHYSICS_TIMESTEP } from '../public/src/core/Constants.js';
+import { DayNightCycle } from '../public/src/core/DayNightCycle.js';
 import { InventoryManager } from '../public/src/inventory/InventoryManager.js';
 import { CraftingSystem } from '../public/src/crafting/CraftingSystem.js';
 import { DropManager } from '../public/src/entities/DropManager.js';
@@ -129,10 +130,10 @@ test('MobManager Zombie pursues player, deals touch damage, flashes on weapon hi
     const zombie = mobMgr.spawnMob('zombie', 4.5, 11.0, 0.5);
     const startDist = Math.abs(zombie.x - player.position.x);
 
-    // Step 1.5 seconds -> Zombie detects player and walks closer, eventually dealing touch damage
+    // Step 1.5 seconds at night -> Zombie detects player and walks closer, eventually dealing touch damage
     for (let i = 0; i < 90; i++) {
         player.updatePhysics(PHYSICS_TIMESTEP);
-        mobMgr.update(PHYSICS_TIMESTEP, player);
+        mobMgr.update(PHYSICS_TIMESTEP, player, true);
     }
 
     const endDist = Math.abs(zombie.x - player.position.x);
@@ -149,4 +150,58 @@ test('MobManager Zombie pursues player, deals touch damage, flashes on weapon hi
     const killed2 = mobMgr.damageMob(zombie, 15, { x: 1, z: 0 });
     assert.equal(killed2, true);
     assert.ok(dropMgr.drops.length > 0, 'Killed zombie should drop items on the ground');
+});
+
+test('InventoryManager starts completely empty and CraftingSystem crafts Torches, Ingots & Iron tools', () => {
+    const inv = new InventoryManager();
+    const totalCount = inv.slots.reduce((acc, s) => acc + (s ? s.count : 0), 0);
+    assert.equal(totalCount, 0, 'Player must start with zero items in inventory');
+
+    const crafting = new CraftingSystem(inv);
+    inv.addItem(ITEM_IDS.COAL, 4);
+    inv.addItem(ITEM_IDS.STICK, 4);
+    inv.addItem(BLOCK_IDS.IRON_ORE, 3);
+
+    assert.equal(crafting.craft('ember_torch').ok, true);
+    assert.equal(inv.getItemCount(BLOCK_IDS.TORCH), 4);
+
+    assert.equal(crafting.craft('iron_ingot').ok, true);
+    assert.equal(crafting.craft('iron_ingot').ok, true);
+    assert.equal(crafting.craft('iron_ingot').ok, true);
+    assert.equal(inv.getItemCount(ITEM_IDS.IRON_INGOT), 3);
+
+    assert.equal(crafting.craft('iron_pickaxe').ok, true);
+    assert.equal(inv.getItemCount(ITEM_IDS.IRON_PICKAXE), 1);
+});
+
+test('DayNightCycle tracks day/night transitions and MobManager spawns zombies only at night', () => {
+    const cycle = new DayNightCycle(600, 0.5);
+    assert.equal(cycle.isNight(), false, 'Noon should be daytime');
+    assert.ok(cycle.getDaylight() > 0.9);
+
+    cycle.timeOfDay = 0.02;
+    assert.equal(cycle.isNight(), true, 'Midnight should be nighttime');
+    assert.equal(cycle.getDaylight(), 0);
+
+    const world = createFlatMockWorld(10);
+    const mobMgr = new MobManager({ world });
+    mobMgr.spawnInitialMobs({ x: 0.5, y: 11, z: 0.5 }, false);
+    const dayHostiles = mobMgr.mobs.filter((m) => m.hostile).length;
+    assert.equal(dayHostiles, 0, 'Daytime spawnInitialMobs must spawn 0 zombies');
+
+    mobMgr.spawnInitialMobs({ x: 0.5, y: 11, z: 0.5 }, true);
+    const nightHostiles = mobMgr.mobs.filter((m) => m.hostile).length;
+    assert.ok(nightHostiles > 0, 'Nighttime spawnInitialMobs should spawn zombies');
+});
+
+test('PlayerController tracks hunger exhaustion and food restoration', () => {
+    const world = createFlatMockWorld(10);
+    const player = new PlayerController({ world });
+    assert.equal(player.hunger, 20);
+
+    player.addExhaustion(4.5);
+    assert.equal(player.hunger, 19);
+
+    assert.equal(player.feed(5), true);
+    assert.equal(player.hunger, 20);
 });

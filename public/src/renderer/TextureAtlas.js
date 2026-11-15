@@ -71,10 +71,20 @@ export class TextureAtlas {
         this._drawPickaxe(TILE_INDEX.IRON_PICKAXE, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
         this._drawAxe(TILE_INDEX.IRON_AXE, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
         this._drawSword(TILE_INDEX.IRON_SWORD, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
+        this._drawShovel(TILE_INDEX.IRON_SHOVEL, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
 
         this._drawPorkchop(TILE_INDEX.RAW_PORKCHOP);
+        this._drawCookedPorkchop(TILE_INDEX.COOKED_PORKCHOP);
         this._drawRottenFlesh(TILE_INDEX.ROTTEN_FLESH);
         this._drawApple(TILE_INDEX.APPLE);
+
+        this._drawOre(TILE_INDEX.COAL_ORE, [34, 36, 40], [58, 60, 66], 1501);
+        this._drawOre(TILE_INDEX.IRON_ORE, [196, 154, 122], [228, 186, 152], 1601);
+        this._drawOre(TILE_INDEX.GOLD_ORE, [232, 192, 48], [254, 232, 108], 1701);
+        this._drawTorch(TILE_INDEX.TORCH);
+        this._drawCoal(TILE_INDEX.COAL);
+        this._drawIngot(TILE_INDEX.IRON_INGOT, [198, 206, 218], [242, 246, 252], [116, 124, 138]);
+        this._drawIngot(TILE_INDEX.GOLD_INGOT, [236, 186, 38], [254, 236, 124], [166, 118, 18]);
     }
 
     _drawDirt(tile) {
@@ -523,6 +533,130 @@ export class TextureAtlas {
             D: [116, 24, 28],
             R: [216, 48, 48],
             H: [252, 146, 138],
+        });
+    }
+
+    _drawCookedPorkchop(tile) {
+        const rows = [
+            '................',
+            '........BBBB....',
+            '.......BMMMMB...',
+            '......BMMHHMMB..',
+            '.....BMMHHHHMMB.',
+            '....BMMMHHHHMMB.',
+            '...BMMMMHHHHMMB.',
+            '..BMMMMMMHHMMB..',
+            '..BMGGGGMMMMB...',
+            '..BMGGWGGMMB....',
+            '...BGGGGMMB.....',
+            '...BMMMMMB......',
+            '....BBBB........',
+            '................',
+            '................',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            B: [96, 46, 22],
+            M: [158, 86, 48],
+            H: [198, 120, 76],
+            G: [232, 178, 132],
+            W: [248, 232, 212],
+        });
+    }
+
+    _drawOre(tile, speckleColors) {
+        this._drawStone(tile);
+        const clusters = [
+            [3, 3], [4, 3], [3, 4],
+            [10, 2], [11, 2], [11, 3],
+            [6, 7], [7, 7], [7, 8], [8, 8],
+            [2, 11], [3, 11], [3, 12],
+            [11, 10], [12, 10], [12, 11], [11, 11],
+        ];
+        for (let i = 0; i < clusters.length; i++) {
+            const [x, y] = clusters[i];
+            const color = speckleColors[i % speckleColors.length];
+            this._setPixel(tile, x, y, color[0], color[1], color[2]);
+        }
+    }
+
+    _drawTorch(tile) {
+        const rows = [
+            '.......FF.......',
+            '......FYYF......',
+            '......FOOF......',
+            '.......OO.......',
+            '.......WW.......',
+            '.......wW.......',
+            '.......WW.......',
+            '.......wW.......',
+            '.......WW.......',
+            '.......wW.......',
+            '.......WW.......',
+            '.......wW.......',
+            '.......WW.......',
+            '.......wW.......',
+            '.......WW.......',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            F: [255, 224, 118],
+            Y: [255, 248, 196],
+            O: [246, 146, 44],
+            W: [148, 102, 54],
+            w: [112, 74, 38],
+        });
+    }
+
+    _drawCoal(tile) {
+        const rows = [
+            '................',
+            '......DDDD......',
+            '....DDMMMMDD....',
+            '...DMHHHHHHMD...',
+            '..DMHHMMMMHHMD..',
+            '..DMHMMMMMMHMD..',
+            '..DMMMMMMMMMMD..',
+            '..DMMMMDDDDMMD..',
+            '...DMMDDDDMMD...',
+            '....DDDDDDDD....',
+            '.....DDDDDD.....',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: [24, 26, 30],
+            M: [46, 50, 58],
+            H: [74, 80, 92],
+        });
+    }
+
+    _drawIngot(tile, dark, mid, light) {
+        const rows = [
+            '................',
+            '................',
+            '......DDDDDD....',
+            '....DDLLLLLLDD..',
+            '...DLLLLLLLLLLD.',
+            '..DLLMMMMMMMMMLD',
+            '..DLMDDDDDDDDMLD',
+            '..DLMDDDDDDDDMLD',
+            '...DDMMMMMMMMDD.',
+            '.....DDDDDDDD...',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: dark,
+            M: mid,
+            L: light,
         });
     }
 

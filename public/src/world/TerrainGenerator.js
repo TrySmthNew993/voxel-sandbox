@@ -146,7 +146,7 @@ export class TerrainGenerator {
                             blockId = BLOCK_IDS.DIRT;
                         }
                     } else {
-                        blockId = BLOCK_IDS.STONE;
+                        blockId = this._pickUndergroundBlock(wx, y, wz);
                     }
 
                     blocks[(y << 8) | (lz << 4) | lx] = blockId;
@@ -265,5 +265,38 @@ export class TerrainGenerator {
         }
         const { surfaceY } = this.sampleColumn(wx, wz);
         return { x: wx + 0.5, y: Math.max(surfaceY, SEA_LEVEL) + 2.5, z: wz + 0.5 };
+    }
+
+    _pickUndergroundBlock(wx, y, wz) {
+        // Coarse 2x2x2 vein cells + fine filter for realistic ore clusters
+        const cx = Math.floor(wx * 0.5);
+        const cy = Math.floor(y * 0.5);
+        const cz = Math.floor(wz * 0.5);
+
+        if (y >= 4 && y <= 30) {
+            const vein = this._hash3(cx, cy, cz, 101);
+            if (vein < 0.012 && this._hash3(wx, y, wz, 211) < 0.65) {
+                return BLOCK_IDS.GOLD_ORE;
+            }
+        }
+        if (y >= 4 && y <= 54) {
+            const vein = this._hash3(cx, cy, cz, 307);
+            if (vein < 0.028 && this._hash3(wx, y, wz, 409) < 0.68) {
+                return BLOCK_IDS.IRON_ORE;
+            }
+        }
+        if (y >= 6 && y <= 84) {
+            const vein = this._hash3(cx, cy, cz, 503);
+            if (vein < 0.048 && this._hash3(wx, y, wz, 607) < 0.72) {
+                return BLOCK_IDS.COAL_ORE;
+            }
+        }
+        return BLOCK_IDS.STONE;
+    }
+
+    _hash3(x, y, z, salt) {
+        let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 2147483647) + Math.imul(salt, 1274126177)) | 0;
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
     }
 }

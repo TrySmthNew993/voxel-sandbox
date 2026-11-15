@@ -1072,6 +1072,127 @@ button:active {
     color: #e2e8f0;
 }
 
+/* World Status Pills (Clock + Audio) */
+.world-status-pills {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 25;
+}
+
+.status-pill {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    backdrop-filter: blur(8px);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 11px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+}
+
+.status-pill-btn {
+    pointer-events: auto;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.status-pill-btn:hover {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(148, 163, 184, 0.5);
+}
+
+.status-pill-btn.muted {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+/* Hunger Bar & Oxygen Bubbles */
+.hunger-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.76);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    padding: 5px 10px;
+    border-radius: 8px;
+}
+
+.hunger-drums {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.drum-icon {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px 6px 3px 3px;
+    background: #334155;
+    border: 1px solid rgba(15, 23, 42, 0.8);
+    transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.drum-icon.full {
+    background: linear-gradient(135deg, #fb923c, #c2410c);
+    box-shadow: 0 0 6px rgba(251, 146, 60, 0.45);
+}
+
+.drum-icon.half {
+    background: linear-gradient(90deg, #ea580c 50%, #334155 50%);
+}
+
+.hunger-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fed7aa;
+    min-width: 38px;
+    text-align: right;
+}
+
+.oxygen-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(12, 42, 76, 0.82);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+}
+
+.oxygen-bubbles {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.bubble-icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(125, 211, 252, 0.5);
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.bubble-icon.full {
+    background: radial-gradient(circle at 35% 35%, #e0f2fe, #38bdf8);
+    border-color: #bae6fd;
+    box-shadow: 0 0 5px rgba(56, 189, 248, 0.6);
+}
+
+.oxygen-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: #bae6fd;
+}
+
 @media (max-width: 780px) {
     .inv-craft-columns {
         grid-template-columns: 1fr;

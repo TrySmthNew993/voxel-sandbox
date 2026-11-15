@@ -280,6 +280,56 @@ function sampleBlock(blocks, borders, lx, ly, lz) {
     return BLOCK_IDS.AIR;
 }
 
+function emitTorchGeometry(bucket, x, y, z, tileIndex) {
+    const tileX = tileIndex % ATLAS_TILES_PER_ROW;
+    const tileY = Math.floor(tileIndex / ATLAS_TILES_PER_ROW);
+    const u0 = tileX * TILE_UV_SIZE + UV_INSET;
+    const u1 = (tileX + 1) * TILE_UV_SIZE - UV_INSET;
+    const v1 = 1.0 - tileY * TILE_UV_SIZE - UV_INSET;
+    const v0 = 1.0 - (tileY + 1) * TILE_UV_SIZE + UV_INSET;
+
+    // Centered 0.14x0.62x0.14 upright post
+    const minX = 0.43;
+    const maxX = 0.57;
+    const minZ = 0.43;
+    const maxZ = 0.57;
+    const minY = 0.0;
+    const maxY = 0.62;
+
+    const uvPairs = [
+        [u0, v0],
+        [u1, v0],
+        [u1, v1],
+        [u0, v1],
+    ];
+
+    for (let f = 0; f < 6; f++) {
+        const face = FACES[f];
+        const baseVert = bucket.vertexCount;
+        // Bright warm glow on top & sides of torch
+        const r = f === 0 ? 1.15 : 1.0;
+        const g = f === 0 ? 1.05 : 0.95;
+        const b = f === 0 ? 0.85 : 0.85;
+
+        for (let c = 0; c < 4; c++) {
+            const corner = face.corners[c];
+            const px = x + (corner[0] === 0 ? minX : maxX);
+            const py = y + (corner[1] === 0 ? minY : maxY);
+            const pz = z + (corner[2] === 0 ? minZ : maxZ);
+            bucket.positions.push(px, py, pz);
+            bucket.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+            bucket.uvs.push(uvPairs[c][0], uvPairs[c][1]);
+            bucket.colors.push(r, g, b);
+        }
+
+        bucket.indices.push(
+            baseVert, baseVert + 1, baseVert + 2,
+            baseVert, baseVert + 2, baseVert + 3
+        );
+        bucket.vertexCount += 4;
+    }
+}
+
 /**
  * Build face-culled, AO-shaded geometry buffers for a single chunk.
  * @param {Uint8Array} blocks
@@ -304,6 +354,11 @@ export function buildChunkMeshData(blocks, borders = null) {
                 const def = BLOCKS[blockId];
                 if (!def || def.renderPass === 'none') continue;
                 const bucket = buckets[def.renderPass];
+
+                if (blockId === BLOCK_IDS.TORCH) {
+                    emitTorchGeometry(bucket, x, y, z, def.faces.side);
+                    continue;
+                }
 
                 const isWater = blockId === BLOCK_IDS.WATER;
                 const aboveWaterAir = isWater && sampleBlock(blocks, borders, x, y + 1, z) === BLOCK_IDS.AIR;

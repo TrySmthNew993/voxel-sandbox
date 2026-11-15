@@ -37,10 +37,20 @@
         <div id="debug-text"></div>
     </aside>
 
-    <!-- Bottom HUD: Survival Health, Toast, Status Hint, and 9-Slot Hotbar -->
+    <!-- Top-Right Day/Night Clock & Audio Toggle -->
+    <div id="world-status-pills" class="world-status-pills" aria-label="Time and Audio Controls">
+        <span id="time-clock-badge" class="status-pill" title="World Time">Day 1 · 07:12 (Day)</span>
+        <button id="audio-mute-btn" class="status-pill status-pill-btn" type="button" title="Toggle Sound (M)">Sound: ON</button>
+    </div>
+
+    <!-- Bottom HUD: Survival Health, Hunger, Oxygen, Toast, Status Hint, and 9-Slot Hotbar -->
     <section id="hud-bottom" class="hud-bottom" aria-label="Survival HUD and Inventory Hotbar">
         <div id="block-toast" class="block-toast"></div>
         <div id="mode-indicator" class="mode-indicator hidden">FLY MODE</div>
+        <div id="oxygen-bar" class="oxygen-bar hidden" title="Underwater Oxygen">
+            <div id="oxygen-bubbles" class="oxygen-bubbles"></div>
+            <span id="oxygen-text" class="oxygen-text">10 / 10 O₂</span>
+        </div>
         <div class="survival-status-row">
             <div class="health-container" title="Player Health">
                 <div id="health-hearts" class="health-hearts"></div>
@@ -49,6 +59,10 @@
             <button id="open-crafting-btn" class="hud-action-btn" type="button" title="Open Inventory &amp; Crafting (E or C)">
                 Inventory &amp; Crafting <kbd>E</kbd>
             </button>
+            <div class="hunger-container" title="Player Hunger">
+                <div id="hunger-drums" class="hunger-drums"></div>
+                <span id="hunger-text" class="hunger-text">20 / 20</span>
+            </div>
         </div>
         <div id="hotbar" class="hotbar" role="listbox" aria-label="Item and Tool Hotbar"></div>
     </section>
@@ -89,7 +103,7 @@
                     <div id="modal-hotbar-grid" class="inv-slot-grid hotbar-modal-grid"></div>
 
                     <details class="creative-supply-details">
-                        <summary>Sandbox Supply Palette (Click to add any block/instrument)</summary>
+                        <summary>Sandbox Supply Palette (Click to add any block or tool)</summary>
                         <div id="palette-grid" class="palette-grid"></div>
                     </details>
                 </div>
