@@ -18,11 +18,18 @@
     <main id="game-viewport" aria-label="3D Voxel Sandbox Viewport"></main>
 
     <div id="underwater-tint" class="underwater-tint hidden" aria-hidden="true"></div>
+    <div id="damage-tint" class="damage-tint hidden" aria-hidden="true"></div>
 
-    <!-- Centered Crosshair -->
+    <!-- Centered Crosshair & Mining / Mob Target Progress -->
     <div id="crosshair" class="crosshair hidden" aria-hidden="true">
         <span class="crosshair-h"></span>
         <span class="crosshair-v"></span>
+    </div>
+    <div id="target-hud" class="target-hud hidden" aria-live="polite">
+        <div id="target-label" class="target-label"></div>
+        <div class="target-bar-track">
+            <div id="target-bar-fill" class="target-bar-fill"></div>
+        </div>
     </div>
 
     <!-- F3 Debug Telemetry Overlay -->
@@ -30,22 +37,72 @@
         <div id="debug-text"></div>
     </aside>
 
-    <!-- Bottom HUD: Toast, Status Hint, and 9-Slot Hotbar -->
-    <section id="hud-bottom" class="hud-bottom" aria-label="Inventory Hotbar">
+    <!-- Bottom HUD: Survival Health, Toast, Status Hint, and 9-Slot Hotbar -->
+    <section id="hud-bottom" class="hud-bottom" aria-label="Survival HUD and Inventory Hotbar">
         <div id="block-toast" class="block-toast"></div>
         <div id="mode-indicator" class="mode-indicator hidden">FLY MODE</div>
-        <div id="hotbar" class="hotbar" role="listbox" aria-label="Block Hotbar"></div>
+        <div class="survival-status-row">
+            <div class="health-container" title="Player Health">
+                <div id="health-hearts" class="health-hearts"></div>
+                <span id="health-text" class="health-text">20 / 20 HP</span>
+            </div>
+            <button id="open-crafting-btn" class="hud-action-btn" type="button" title="Open Inventory &amp; Crafting (E or C)">
+                Inventory &amp; Crafting <kbd>E</kbd>
+            </button>
+        </div>
+        <div id="hotbar" class="hotbar" role="listbox" aria-label="Item and Tool Hotbar"></div>
     </section>
 
-    <!-- Block Palette Drawer (E key) -->
-    <section id="palette-modal" class="palette-modal hidden" aria-label="Block Inventory Palette">
-        <div class="palette-card">
+    <!-- Inventory, Crafting & Sandbox Supply Modal (E or C key) -->
+    <section id="palette-modal" class="palette-modal hidden" aria-label="Inventory and Crafting">
+        <div class="palette-card inventory-crafting-shell">
             <header class="palette-header">
-                <h2>Block Palette</h2>
-                <span class="palette-sub">Click a block to assign it to the active hotbar slot</span>
-                <button id="palette-close-btn" class="btn-ghost" type="button">Resume</button>
+                <div>
+                    <h2>Survival Inventory &amp; Crafting</h2>
+                    <span class="palette-sub">Craft tools &amp; blocks, click slots to swap/merge stacks, or Shift+Click to quick-move</span>
+                </div>
+                <button id="palette-close-btn" class="btn-ghost" type="button">Resume Game (Esc / E)</button>
             </header>
-            <div id="palette-grid" class="palette-grid"></div>
+
+            <div class="inv-craft-columns">
+                <!-- Left Column: Crafting Recipes -->
+                <div class="craft-panel">
+                    <div class="section-title-row">
+                        <h3>Crafting Recipes</h3>
+                        <span class="section-hint">Tools speed up block breaking &amp; boost melee damage</span>
+                    </div>
+                    <div id="crafting-recipes-list" class="crafting-recipes-list"></div>
+                </div>
+
+                <!-- Right Column: Backpack (27) + Hotbar (9) + Creative Supply -->
+                <div class="inv-panel">
+                    <div class="section-title-row">
+                        <h3>Backpack Inventory (27 Slots)</h3>
+                        <span id="inv-cursor-hint" class="section-hint">Click two slots to swap</span>
+                    </div>
+                    <div id="backpack-grid" class="inv-slot-grid"></div>
+
+                    <div class="section-title-row">
+                        <h3>Active Hotbar (Slots 1–9)</h3>
+                        <span class="section-hint">Equipped in hand during gameplay</span>
+                    </div>
+                    <div id="modal-hotbar-grid" class="inv-slot-grid hotbar-modal-grid"></div>
+
+                    <details class="creative-supply-details">
+                        <summary>Sandbox Supply Palette (Click to add any block/instrument)</summary>
+                        <div id="palette-grid" class="palette-grid"></div>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Death & Respawn Overlay Modal -->
+    <section id="death-modal" class="death-modal hidden" aria-label="Player Respawn Screen">
+        <div class="death-card">
+            <h2>YOU DIED</h2>
+            <p id="death-reason-text" class="death-reason">Slain in the wilderness</p>
+            <button id="respawn-btn" class="btn-primary" type="button">Respawn in World (R / Enter)</button>
         </div>
     </section>
 
@@ -100,10 +157,10 @@
                         <div><kbd>Space</kbd> Jump / Swim</div>
                         <div><kbd>Shift</kbd> Sprint</div>
                         <div><kbd>F</kbd> Toggle Fly</div>
-                        <div><kbd>LMB</kbd> Break Block</div>
-                        <div><kbd>RMB</kbd> Place Block</div>
+                        <div><kbd>LMB</kbd> Mine / Attack Mob</div>
+                        <div><kbd>RMB</kbd> Place / Eat Food</div>
                         <div><kbd>1-9</kbd> / Scroll Hotbar</div>
-                        <div><kbd>E</kbd> Block Palette</div>
+                        <div><kbd>E / C</kbd> Inventory &amp; Craft</div>
                     </div>
                 </div>
 

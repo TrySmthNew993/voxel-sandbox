@@ -55,6 +55,26 @@ export class TextureAtlas {
         this._drawSnow(TILE_INDEX.SNOW);
         this._drawSnowSide(TILE_INDEX.SNOW_SIDE);
         this._drawBedrock(TILE_INDEX.BEDROCK);
+
+        // Draw non-block survival items, food drops, and tools/weapons
+        this._drawStick(TILE_INDEX.STICK);
+        this._drawPickaxe(TILE_INDEX.WOODEN_PICKAXE, [168, 128, 76], [202, 160, 98], [116, 84, 48]);
+        this._drawAxe(TILE_INDEX.WOODEN_AXE, [168, 128, 76], [202, 160, 98], [116, 84, 48]);
+        this._drawSword(TILE_INDEX.WOODEN_SWORD, [168, 128, 76], [208, 166, 102], [116, 84, 48]);
+        this._drawShovel(TILE_INDEX.WOODEN_SHOVEL, [168, 128, 76], [202, 160, 98], [116, 84, 48]);
+
+        this._drawPickaxe(TILE_INDEX.STONE_PICKAXE, [132, 138, 146], [174, 180, 188], [86, 90, 98]);
+        this._drawAxe(TILE_INDEX.STONE_AXE, [132, 138, 146], [174, 180, 188], [86, 90, 98]);
+        this._drawSword(TILE_INDEX.STONE_SWORD, [132, 138, 146], [182, 188, 196], [86, 90, 98]);
+        this._drawShovel(TILE_INDEX.STONE_SHOVEL, [132, 138, 146], [174, 180, 188], [86, 90, 98]);
+
+        this._drawPickaxe(TILE_INDEX.IRON_PICKAXE, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
+        this._drawAxe(TILE_INDEX.IRON_AXE, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
+        this._drawSword(TILE_INDEX.IRON_SWORD, [206, 214, 224], [242, 248, 255], [136, 146, 160]);
+
+        this._drawPorkchop(TILE_INDEX.RAW_PORKCHOP);
+        this._drawRottenFlesh(TILE_INDEX.ROTTEN_FLESH);
+        this._drawApple(TILE_INDEX.APPLE);
     }
 
     _drawDirt(tile) {
@@ -267,6 +287,243 @@ export class TextureAtlas {
                 this._setPixel(tile, x, y, val, val, val + 2);
             }
         }
+    }
+
+    _drawPattern(tile, rows, palette) {
+        for (let y = 0; y < 16; y++) {
+            const row = rows[y] || '';
+            for (let x = 0; x < 16; x++) {
+                const ch = row[x];
+                if (!ch || ch === '.') continue;
+                const col = palette[ch];
+                if (col) {
+                    this._setPixel(tile, x, y, col[0], col[1], col[2], col[3] ?? 255);
+                }
+            }
+        }
+    }
+
+    _drawStick(tile) {
+        const rows = [
+            '................',
+            '............oo..',
+            '...........oHho.',
+            '..........oHho..',
+            '.........oHho...',
+            '........oHho....',
+            '.......oHho.....',
+            '......oHho......',
+            '.....oHho.......',
+            '....oHho........',
+            '...oHho.........',
+            '..oHho..........',
+            '.oHho...........',
+            '.oho............',
+            '..o.............',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            o: [68, 46, 24],
+            h: [138, 96, 54],
+            H: [176, 128, 76],
+        });
+    }
+
+    _drawPickaxe(tile, mainCol, hiCol, darkCol) {
+        const rows = [
+            '................',
+            '......DDDDDD....',
+            '.....DHHHHMMD...',
+            '....DHMMMMMMMD..',
+            '....DMM..oHHMD..',
+            '.........hssMD..',
+            '........hsh.DM..',
+            '.......hsh..DM..',
+            '......hsh...DD..',
+            '.....hsh........',
+            '....hsh.........',
+            '...hsh..........',
+            '..hsh...........',
+            '.hsh............',
+            '.hh.............',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: darkCol,
+            M: mainCol,
+            H: hiCol,
+            s: [148, 104, 58],
+            h: [92, 62, 34],
+            o: [66, 44, 24],
+        });
+    }
+
+    _drawAxe(tile, mainCol, hiCol, darkCol) {
+        const rows = [
+            '................',
+            '.......DDDD.....',
+            '......DHHHMD....',
+            '.....DHHMMhsh...',
+            '.....DHHHMMsh...',
+            '.....DMMMMhsh...',
+            '......DDD.hD....',
+            '.........hsh....',
+            '........hsh.....',
+            '.......hsh......',
+            '......hsh.......',
+            '.....hsh........',
+            '....hsh.........',
+            '...hsh..........',
+            '..hsh...........',
+            '..hh............',
+        ];
+        this._drawPattern(tile, rows, {
+            D: darkCol,
+            M: mainCol,
+            H: hiCol,
+            s: [148, 104, 58],
+            h: [92, 62, 34],
+        });
+    }
+
+    _drawSword(tile, mainCol, hiCol, darkCol) {
+        const rows = [
+            '.............DD.',
+            '............DHD.',
+            '...........DHMD.',
+            '..........DHMD..',
+            '.........DHMD...',
+            '........DHMD....',
+            '.......DHMD.....',
+            '......DHMD......',
+            '...GG.DMD.......',
+            '....GGMD........',
+            '....hGG.........',
+            '...hshG.........',
+            '..hsh.G.........',
+            '.Gsh............',
+            'GGh.............',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: darkCol,
+            M: mainCol,
+            H: hiCol,
+            G: [104, 76, 42],
+            s: [148, 104, 58],
+            h: [78, 52, 28],
+        });
+    }
+
+    _drawShovel(tile, mainCol, hiCol, darkCol) {
+        const rows = [
+            '................',
+            '..........DDDD..',
+            '.........DHHHMD.',
+            '.........DHHMMD.',
+            '.........DHMMMD.',
+            '.........DDDDD..',
+            '........hsh.....',
+            '.......hsh......',
+            '......hsh.......',
+            '.....hsh........',
+            '....hsh.........',
+            '...hsh..........',
+            '..hsh...........',
+            '.hsh............',
+            '.hh.............',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: darkCol,
+            M: mainCol,
+            H: hiCol,
+            s: [148, 104, 58],
+            h: [92, 62, 34],
+        });
+    }
+
+    _drawPorkchop(tile) {
+        const rows = [
+            '................',
+            '................',
+            '.....DDDDDD.....',
+            '....DFFFFFFD....',
+            '...DFFPPPPFFD...',
+            '..DFFPPHHPPFFD..',
+            '..DFPPPPPPPPFD..',
+            '..DFPPPPPPPPDD..',
+            '...DFPPPPPPD....',
+            '....DDPPPPBBD...',
+            '......DDDDWBBD..',
+            '..........DWWBD.',
+            '...........DD...',
+            '................',
+            '................',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: [110, 44, 48],
+            F: [238, 178, 174],
+            P: [218, 102, 106],
+            H: [248, 152, 156],
+            B: [215, 206, 194],
+            W: [248, 244, 236],
+        });
+    }
+
+    _drawRottenFlesh(tile) {
+        const rows = [
+            '................',
+            '................',
+            '.....DDDDD......',
+            '....DRRRRRD.....',
+            '...DRGGGGGRD....',
+            '..DRGGRRRGGRD...',
+            '..DRGRRRRRGRD...',
+            '...DRRGGGRRD....',
+            '....DDRRRDD.....',
+            '.....DRGRD......',
+            '......DDD.......',
+            '................',
+            '................',
+            '................',
+            '................',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            D: [64, 42, 32],
+            R: [146, 72, 54],
+            G: [104, 134, 66],
+        });
+    }
+
+    _drawApple(tile) {
+        const rows = [
+            '................',
+            '.......ssLL.....',
+            '.......sLLL.....',
+            '....DDDDRDDD....',
+            '...DRRRRRRRRD...',
+            '..DRRHHHRRRRRD..',
+            '..DRHHRRRRRRRD..',
+            '..DRRRRRRRRRRD..',
+            '..DRRRRRRRRRRD..',
+            '...DRRRRRRRRD...',
+            '...DRRRRRRRRD...',
+            '....DDRRRRRDD...',
+            '......DD.DD.....',
+            '................',
+            '................',
+            '................',
+        ];
+        this._drawPattern(tile, rows, {
+            s: [102, 68, 36],
+            L: [76, 168, 56],
+            D: [116, 24, 28],
+            R: [216, 48, 48],
+            H: [252, 146, 138],
+        });
     }
 
     /**

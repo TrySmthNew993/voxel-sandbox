@@ -34,6 +34,22 @@ export const TILE_INDEX = Object.freeze({
     SNOW: 12,
     SNOW_SIDE: 13,
     BEDROCK: 14,
+    // Non-block items, food, and instruments/tools (tiles 16..30)
+    STICK: 16,
+    WOODEN_PICKAXE: 17,
+    WOODEN_AXE: 18,
+    WOODEN_SWORD: 19,
+    WOODEN_SHOVEL: 20,
+    STONE_PICKAXE: 21,
+    STONE_AXE: 22,
+    STONE_SWORD: 23,
+    STONE_SHOVEL: 24,
+    RAW_PORKCHOP: 25,
+    ROTTEN_FLESH: 26,
+    APPLE: 27,
+    IRON_PICKAXE: 28,
+    IRON_AXE: 29,
+    IRON_SWORD: 30,
 });
 
 /**
@@ -48,6 +64,9 @@ export const TILE_INDEX = Object.freeze({
  * @property {boolean} cullSameType - Culls faces shared between identical adjacent blocks
  * @property {{top: number, bottom: number, side: number}} faces - Tile indices in TextureAtlas
  * @property {number} previewTile - Tile index rendered in hotbar/inventory icons
+ * @property {number} hardness - Base time in seconds to break by hand
+ * @property {'pickaxe'|'axe'|'shovel'|'sword'|null} preferredTool - Tool category that speeds up breaking
+ * @property {number} dropId - Item/Block ID spawned when broken
  */
 
 /** @type {Record<number, BlockDefinition>} */
@@ -63,6 +82,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: 0, bottom: 0, side: 0 },
         previewTile: 0,
+        hardness: 0,
+        preferredTool: null,
+        dropId: 0,
     },
     [BLOCK_IDS.DIRT]: {
         id: BLOCK_IDS.DIRT,
@@ -75,6 +97,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.DIRT, bottom: TILE_INDEX.DIRT, side: TILE_INDEX.DIRT },
         previewTile: TILE_INDEX.DIRT,
+        hardness: 0.45,
+        preferredTool: 'shovel',
+        dropId: BLOCK_IDS.DIRT,
     },
     [BLOCK_IDS.STONE]: {
         id: BLOCK_IDS.STONE,
@@ -87,6 +112,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.STONE, bottom: TILE_INDEX.STONE, side: TILE_INDEX.STONE },
         previewTile: TILE_INDEX.STONE,
+        hardness: 1.15,
+        preferredTool: 'pickaxe',
+        dropId: BLOCK_IDS.COBBLESTONE,
     },
     [BLOCK_IDS.WOOD]: {
         id: BLOCK_IDS.WOOD,
@@ -99,6 +127,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.WOOD_TOP, bottom: TILE_INDEX.WOOD_TOP, side: TILE_INDEX.WOOD_SIDE },
         previewTile: TILE_INDEX.WOOD_SIDE,
+        hardness: 0.85,
+        preferredTool: 'axe',
+        dropId: BLOCK_IDS.WOOD,
     },
     [BLOCK_IDS.GLASS]: {
         id: BLOCK_IDS.GLASS,
@@ -111,6 +142,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.GLASS, bottom: TILE_INDEX.GLASS, side: TILE_INDEX.GLASS },
         previewTile: TILE_INDEX.GLASS,
+        hardness: 0.3,
+        preferredTool: 'pickaxe',
+        dropId: BLOCK_IDS.GLASS,
     },
     [BLOCK_IDS.LEAVES]: {
         id: BLOCK_IDS.LEAVES,
@@ -123,6 +157,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: false,
         faces: { top: TILE_INDEX.LEAVES, bottom: TILE_INDEX.LEAVES, side: TILE_INDEX.LEAVES },
         previewTile: TILE_INDEX.LEAVES,
+        hardness: 0.25,
+        preferredTool: 'axe',
+        dropId: BLOCK_IDS.LEAVES,
     },
     [BLOCK_IDS.GRASS]: {
         id: BLOCK_IDS.GRASS,
@@ -135,6 +172,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.GRASS_TOP, bottom: TILE_INDEX.DIRT, side: TILE_INDEX.GRASS_SIDE },
         previewTile: TILE_INDEX.GRASS_SIDE,
+        hardness: 0.5,
+        preferredTool: 'shovel',
+        dropId: BLOCK_IDS.DIRT,
     },
     [BLOCK_IDS.SAND]: {
         id: BLOCK_IDS.SAND,
@@ -147,6 +187,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.SAND, bottom: TILE_INDEX.SAND, side: TILE_INDEX.SAND },
         previewTile: TILE_INDEX.SAND,
+        hardness: 0.45,
+        preferredTool: 'shovel',
+        dropId: BLOCK_IDS.SAND,
     },
     [BLOCK_IDS.COBBLESTONE]: {
         id: BLOCK_IDS.COBBLESTONE,
@@ -159,6 +202,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.COBBLESTONE, bottom: TILE_INDEX.COBBLESTONE, side: TILE_INDEX.COBBLESTONE },
         previewTile: TILE_INDEX.COBBLESTONE,
+        hardness: 1.15,
+        preferredTool: 'pickaxe',
+        dropId: BLOCK_IDS.COBBLESTONE,
     },
     [BLOCK_IDS.PLANKS]: {
         id: BLOCK_IDS.PLANKS,
@@ -171,6 +217,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.PLANKS, bottom: TILE_INDEX.PLANKS, side: TILE_INDEX.PLANKS },
         previewTile: TILE_INDEX.PLANKS,
+        hardness: 0.75,
+        preferredTool: 'axe',
+        dropId: BLOCK_IDS.PLANKS,
     },
     [BLOCK_IDS.WATER]: {
         id: BLOCK_IDS.WATER,
@@ -183,6 +232,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.WATER, bottom: TILE_INDEX.WATER, side: TILE_INDEX.WATER },
         previewTile: TILE_INDEX.WATER,
+        hardness: 0,
+        preferredTool: null,
+        dropId: 0,
     },
     [BLOCK_IDS.SNOW]: {
         id: BLOCK_IDS.SNOW,
@@ -195,6 +247,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.SNOW, bottom: TILE_INDEX.DIRT, side: TILE_INDEX.SNOW_SIDE },
         previewTile: TILE_INDEX.SNOW,
+        hardness: 0.4,
+        preferredTool: 'shovel',
+        dropId: BLOCK_IDS.SNOW,
     },
     [BLOCK_IDS.BEDROCK]: {
         id: BLOCK_IDS.BEDROCK,
@@ -207,6 +262,9 @@ export const BLOCKS = Object.freeze({
         cullSameType: true,
         faces: { top: TILE_INDEX.BEDROCK, bottom: TILE_INDEX.BEDROCK, side: TILE_INDEX.BEDROCK },
         previewTile: TILE_INDEX.BEDROCK,
+        hardness: Infinity,
+        preferredTool: null,
+        dropId: 0,
     },
 });
 

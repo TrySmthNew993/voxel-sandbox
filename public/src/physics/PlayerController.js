@@ -52,6 +52,17 @@ export class PlayerController {
         this.pointerLocked = false;
         this.sensitivity = 0.0022;
 
+        // Survival health, fall tracking, and combat state
+        this.maxHealth = 20;
+        this.health = 20;
+        this.isDead = false;
+        this.deathCause = '';
+        this.fallDistance = 0;
+        this.invulnerableTimer = 0;
+        this.hurtFlashTimer = 0;
+        this.regenTimer = 0;
+        this.primaryHeld = false;
+
         this.keys = new Set();
         this.walkBobPhase = 0;
         this.currentFov = 75;
@@ -85,14 +96,22 @@ export class PlayerController {
         };
 
         this._onMouseDown = (e) => {
-            if (!this.pointerLocked) return;
+            if (!this.pointerLocked || this.isDead) return;
             if (e.button === 0) {
+                this.primaryHeld = true;
                 this.bus?.emit('player:primaryAction');
             } else if (e.button === 2) {
                 this.bus?.emit('player:secondaryAction');
             } else if (e.button === 1) {
                 e.preventDefault();
                 this.bus?.emit('player:pickAction');
+            }
+        };
+
+        this._onMouseUp = (e) => {
+            if (e.button === 0) {
+                this.primaryHeld = false;
+                this.bus?.emit('player:primaryRelease');
             }
         };
 
@@ -104,16 +123,19 @@ export class PlayerController {
             this.pointerLocked = document.pointerLockElement === this.domElement;
             if (!this.pointerLocked) {
                 this.keys.clear();
+                this.primaryHeld = false;
             }
             this.bus?.emit('player:pointerLock', this.pointerLocked);
         };
 
         this._onBlur = () => {
             this.keys.clear();
+            this.primaryHeld = false;
         };
 
         window.addEventListener('keydown', this._onKeyDown);
         window.addEventListener('keyup', this._onKeyUp);
+        window.addEventListener('mouseup', this._onMouseUp);
         window.addEventListener('blur', this._onBlur);
         document.addEventListener('mousemove', this._onMouseMove);
         document.addEventListener('pointerlockchange', this._onPointerLockChange);
@@ -147,7 +169,99 @@ export class PlayerController {
         this.velocity.y = 0;
         this.velocity.z = 0;
         this.onGround = false;
+        this.fallDistance = 0;
         this.syncCamera(0);
+    }
+
+    /**
+     * Inflict survival damage on the player (from falling or hostile mobs).
+     * @param {number} amount
+     * @param {string} [cause='Damage']
+     * @param {{x?: number, y?: number, z?: number}|null} [knockback=null]
+     * @returns {boolean} True if damage was applied
+     */
+    takeDamage(amount, cause = 'Damage', knockback = null) {
+        if (this.isDead || this.flying || this.invulnerableTimer > 0 || amount <= 0) {
+            return false;
+        }
+
+        const dmg = Math.max(1, Math.round(amount));
+        this.health = Math.max(0, this.health - dmg);
+        this.invulnerableTimer = 0.48;
+        this.hurtFlashTimer = 0.32;
+        this.regenTimer = 0;
+
+        if (knockback) {
+            if (typeof knockback.x === 'number') this.velocity.x += knockback.x;
+            if (typeof knockback.y === 'number') {
+                this.velocity.y = Math.max(this.velocity.y, knockback.y);
+                this.onGround = false;
+            }
+            if (typeof knockback.z === 'number') this.velocity.z += knockback.z;
+        }
+
+        this.bus?.emit('player:damaged', {
+            amount: dmg,
+            health: this.health,
+            maxHealth: this.maxHealth,
+            cause,
+        });
+        this.bus?.emit('player:healthChanged', {
+            health: this.health,
+            maxHealth: this.maxHealth,
+        });
+
+        if (this.health <= 0) {
+            this.isDead = true;
+            this.deathCause = cause;
+            this.primaryHeld = false;
+            this.keys.clear();
+            this.exitPointerLock();
+            this.bus?.emit('player:died', { cause });
+        }
+
+        return true;
+    }
+
+    /**
+     * Restore player health (e.g. from eating Porkchop/Apple or natural regen).
+     * @param {number} amount
+     * @returns {boolean}
+     */
+    heal(amount) {
+        if (this.isDead || amount <= 0 || this.health >= this.maxHealth) return false;
+        this.health = Math.min(this.maxHealth, this.health + amount);
+        this.bus?.emit('player:healthChanged', {
+            health: this.health,
+            maxHealth: this.maxHealth,
+        });
+        return true;
+    }
+
+    /**
+     * Respawn the player at the given safe world coordinates with full health.
+     * @param {{x: number, y: number, z: number}} [spawnPos]
+     */
+    respawn(spawnPos = null) {
+        this.isDead = false;
+        this.deathCause = '';
+        this.health = this.maxHealth;
+        this.fallDistance = 0;
+        this.invulnerableTimer = 1.2;
+        this.hurtFlashTimer = 0;
+        this.primaryHeld = false;
+
+        if (spawnPos) {
+            this.setPosition(spawnPos.x, spawnPos.y, spawnPos.z);
+        }
+
+        this.bus?.emit('player:healthChanged', {
+            health: this.health,
+            maxHealth: this.maxHealth,
+        });
+        this.bus?.emit('player:respawned', {
+            position: { ...this.position },
+        });
     }
 
     setSensitivity(val) {
@@ -197,6 +311,22 @@ export class PlayerController {
      * @param {number} dt Fixed timestep in seconds (e.g. 1/60)
      */
     updatePhysics(dt) {
+        if (this.invulnerableTimer > 0) {
+            this.invulnerableTimer = Math.max(0, this.invulnerableTimer - dt);
+        }
+        if (this.hurtFlashTimer > 0) {
+            this.hurtFlashTimer = Math.max(0, this.hurtFlashTimer - dt);
+        }
+
+        // Slow natural health regeneration after 7s out of combat
+        if (!this.isDead && this.health > 0 && this.health < this.maxHealth) {
+            this.regenTimer += dt;
+            if (this.regenTimer >= 7.0) {
+                this.regenTimer = 5.0; // +1 HP every 2s once regen starts
+                this.heal(1);
+            }
+        }
+
         // Guard against falling through unloaded terrain while streaming chunks
         if (typeof this.world.hasChunkAt === 'function' && !this.world.hasChunkAt(this.position.x, this.position.z)) {
             this.velocity.y = 0;
@@ -213,8 +343,12 @@ export class PlayerController {
         this.inWater = feetBlock === BLOCK_IDS.WATER || chestBlock === BLOCK_IDS.WATER;
         this.eyeInWater = eyeBlock === BLOCK_IDS.WATER;
 
-        // Gather input intent (only active while pointer locked or in headless test mode)
-        const activeControl = !this.domElement || this.pointerLocked;
+        if (this.inWater || this.flying) {
+            this.fallDistance = 0;
+        }
+
+        // Gather input intent (only active while pointer locked or in headless test mode, and not dead)
+        const activeControl = (!this.domElement || this.pointerLocked) && !this.isDead;
         let moveForward = 0;
         let moveRight = 0;
         let jumpPressed = false;
@@ -328,6 +462,12 @@ export class PlayerController {
     }
 
     _moveAndCollideY(dy) {
+        if (dy < 0 && !this.flying && !this.inWater) {
+            this.fallDistance += -dy;
+        } else if (dy > 0) {
+            this.fallDistance = 0;
+        }
+
         this.position.y += dy;
         this.onGround = false;
 
@@ -348,6 +488,13 @@ export class PlayerController {
                         if (dy < 0) {
                             this.position.y = by + 1;
                             this.onGround = true;
+                            if (this.fallDistance > 3.5 && !this.flying && !this.inWater) {
+                                const fallDmg = Math.floor(this.fallDistance - 3.0);
+                                if (fallDmg > 0) {
+                                    this.takeDamage(fallDmg, 'Fell from a high place');
+                                }
+                            }
+                            this.fallDistance = 0;
                         } else if (dy > 0) {
                             this.position.y = by - PLAYER_HEIGHT;
                         }
@@ -424,6 +571,7 @@ export class PlayerController {
         if (this.domElement && typeof document !== 'undefined') {
             window.removeEventListener('keydown', this._onKeyDown);
             window.removeEventListener('keyup', this._onKeyUp);
+            window.removeEventListener('mouseup', this._onMouseUp);
             window.removeEventListener('blur', this._onBlur);
             document.removeEventListener('mousemove', this._onMouseMove);
             document.removeEventListener('pointerlockchange', this._onPointerLockChange);
