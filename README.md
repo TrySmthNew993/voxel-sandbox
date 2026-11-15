@@ -17,6 +17,8 @@ https://trysmthnew993.github.io/voxel-sandbox/
 - **Voxel Mechanics & Progressive Mining**: Amanatides–Woo 3D DDA raycasting for block targeting, progressive tool-accelerated block breaking (`LMB`) with a 10-stage procedural crack overlay, block placement & food consumption (`RMB`), pick-block (`MMB`), and a 3D voxel-extruded first-person held item/instrument viewmodel.
 - **Day/Night Cycle & Dynamic Lighting (`DayNightCycle`, `Renderer`)**:
   - 10-minute celestial cycle with rotating Sun, Moon, twilight/starfield sky transitions, and pooled dynamic `PointLight` illumination from placeable **Ember Torches**.
+- **World Save Import & Export (`.json`)**:
+  - Download full world backups (seed, player position, health, hunger, inventory items, modified block deltas, placed torches, and day/night time) or import world saves to resume where you left off or share worlds with friends.
 - **Underground Ores & Zero-Starter Progression**:
   - Players begin with empty hands and must gather Wood, Cobblestone, **Coal Ore**, **Iron Ore**, and **Gold Ore** veins underground to smelt ingots and craft every tool tier from scratch.
 - **Collectible 3D Block Drops & Inventory (`InventoryManager`, `DropManager`)**:

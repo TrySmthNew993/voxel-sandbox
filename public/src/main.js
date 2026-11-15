@@ -333,6 +333,121 @@ function bootstrap() {
         startSoloWorld(seed);
     });
 
+    // World Export / Import
+    function exportWorldData() {
+        const data = {
+            version: 1,
+            format: 'voxel-sandbox-world',
+            timestamp: Date.now(),
+            seed: world.seed,
+            deltas: world.getSerializedDeltas(),
+            player: {
+                position: { x: player.position.x, y: player.position.y, z: player.position.z },
+                yaw: player.yaw,
+                pitch: player.pitch,
+                health: player.health,
+                maxHealth: player.maxHealth,
+                hunger: player.hunger,
+                maxHunger: player.maxHunger,
+                inventory: inventory.serialize(),
+            },
+            dayNight: {
+                timeOfDay: dayNight.timeOfDay,
+                dayCount: dayNight.dayCount,
+            },
+            torches: Array.from(activeTorches.values()),
+        };
+        return data;
+    }
+
+    function downloadWorldFile() {
+        const data = exportWorldData();
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const filename = `voxel-world-${world.seed}-${Date.now()}.json`;
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2500);
+        hud.showToast(`Exported world to ${filename}`);
+    }
+
+    function importWorldData(data) {
+        if (!data || typeof data !== 'object') {
+            alert('Invalid world data file.');
+            return false;
+        }
+        if (data.format !== 'voxel-sandbox-world' && !Array.isArray(data.deltas)) {
+            alert('Unrecognized world save format.');
+            return false;
+        }
+
+        const seed = typeof data.seed === 'number' ? data.seed : DEFAULT_SEED;
+        const initialDeltas = Array.isArray(data.deltas) ? data.deltas : [];
+
+        // Reset world and apply imported deltas
+        world.resetWorld(seed, initialDeltas);
+        dropManager.clearAll();
+        mobManager.clearAll();
+        activeTorches.clear();
+
+        if (Array.isArray(data.torches)) {
+            for (const t of data.torches) {
+                if (t && typeof t.x === 'number' && typeof t.y === 'number' && typeof t.z === 'number') {
+                    activeTorches.set(`${t.x},${t.y},${t.z}`, { x: t.x, y: t.y, z: t.z });
+                }
+            }
+        }
+        syncTorchList();
+
+        // Restore day/night cycle
+        if (data.dayNight && typeof data.dayNight.timeOfDay === 'number') {
+            dayNight.timeOfDay = data.dayNight.timeOfDay;
+            if (typeof data.dayNight.dayCount === 'number') {
+                dayNight.dayCount = data.dayNight.dayCount;
+            }
+        }
+
+        // Restore player position & stats
+        const p = data.player;
+        if (p && p.position && typeof p.position.x === 'number') {
+            const scx = Math.floor(p.position.x / CHUNK_SIZE_X);
+            const scz = Math.floor(p.position.z / CHUNK_SIZE_Z);
+            for (let dz = -1; dz <= 1; dz++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    world.ensureChunkSync(scx + dx, scz + dz);
+                }
+            }
+            player.setPosition(p.position.x, p.position.y, p.position.z);
+            if (typeof p.yaw === 'number') player.yaw = p.yaw;
+            if (typeof p.pitch === 'number') player.pitch = p.pitch;
+            if (typeof p.health === 'number') player.health = p.health;
+            if (typeof p.hunger === 'number') player.hunger = p.hunger;
+            if (p.inventory) inventory.deserialize(p.inventory);
+        } else {
+            const spawn = world.findSafeSpawn(0, 0);
+            player.respawn(spawn);
+        }
+
+        mobManager.spawnInitialMobs(player.position, dayNight.isNight());
+        hud.renderHealth(player.health, player.maxHealth);
+        hud.renderHunger(player.hunger, player.maxHunger);
+        hud.showToast('World imported successfully!');
+        return true;
+    }
+
+    bus.on('world:exportRequested', () => {
+        downloadWorldFile();
+    });
+
+    bus.on('world:importRequested', (data) => {
+        importWorldData(data);
+    });
+
     // Expose read-only diagnostic hook for debugging & automated verification
     window.__VOXEL_GAME__ = {
         world,
@@ -349,6 +464,8 @@ function bootstrap() {
         dayNight,
         audio,
         breakBlockAndSpawnDrops,
+        exportWorldData,
+        importWorldData,
     };
 
     // Clicking canvas directly when modals are closed re-engages pointer lock

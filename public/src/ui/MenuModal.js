@@ -26,6 +26,8 @@ export class MenuModal {
         this.playBtn = document.getElementById('play-btn');
         this.seedInput = document.getElementById('seed-input');
         this.newWorldBtn = document.getElementById('new-world-btn');
+        this.exportWorldBtn = document.getElementById('export-world-btn');
+        this.importWorldInput = document.getElementById('import-world-input');
         this.renderDistSlider = document.getElementById('render-dist-slider');
         this.renderDistVal = document.getElementById('render-dist-val');
         this.sensitivitySlider = document.getElementById('sensitivity-slider');
@@ -115,6 +117,29 @@ export class MenuModal {
             this.bus.emit('world:newSoloSeed', seed);
             this.hide();
             this.player.requestPointerLock();
+        });
+
+        this.exportWorldBtn?.addEventListener('click', () => {
+            this.bus.emit('world:exportRequested');
+        });
+
+        this.importWorldInput?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const json = JSON.parse(evt.target.result);
+                    this.bus.emit('world:importRequested', json);
+                    this.hide();
+                    this.player.requestPointerLock();
+                } catch (err) {
+                    alert('Failed to parse world file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            // Reset input so same file can be selected again
+            e.target.value = '';
         });
 
         this.renderDistSlider.addEventListener('input', () => {

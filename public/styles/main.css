@@ -501,6 +501,14 @@ button:active {
     background: rgba(217, 72, 72, 0.28);
 }
 
+.btn-file-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-align: center;
+}
+
 .controls-legend {
     display: grid;
     grid-template-columns: 1fr 1fr;

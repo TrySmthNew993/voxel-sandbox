@@ -25,6 +25,36 @@ export class InventoryManager {
     }
 
     /**
+     * Export full inventory state (slots and activeIndex) for world saving.
+     */
+    serialize() {
+        return {
+            activeIndex: this.activeIndex,
+            slots: this.slots.map((s) => (s ? { id: s.id, count: s.count } : null)),
+        };
+    }
+
+    /**
+     * Restore inventory state from an exported world save.
+     */
+    deserialize(data) {
+        if (!data || !Array.isArray(data.slots)) return;
+        this.slots.fill(null);
+        for (let i = 0; i < Math.min(TOTAL_INVENTORY_SLOTS, data.slots.length); i++) {
+            const s = data.slots[i];
+            if (s && typeof s.id === 'number' && typeof s.count === 'number' && s.count > 0) {
+                this.slots[i] = { id: s.id, count: s.count };
+            }
+        }
+        if (typeof data.activeIndex === 'number' && data.activeIndex >= 0 && data.activeIndex < HOTBAR_SIZE) {
+            this.activeIndex = data.activeIndex;
+        } else {
+            this.activeIndex = 0;
+        }
+        this._emitChange();
+    }
+
+    /**
      * Reset inventory to empty hands so the player gathers and crafts everything.
      */
     resetToStarterKit() {
